@@ -1,0 +1,19 @@
+{
+  "name": "agrimind-merged",
+  "version": "1.0.0",
+  "description": "AgriMind — Unified Smart Poultry Health, Trade & Financial Intelligence Platform",
+  "scripts": {
+    "install:all": "cd app/backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd app/backend && node server.js",
+    "dev:frontend": "cd app/frontend && npm run dev",
+    "build:frontend": "cd app/frontend && npm run build",
+    "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"cyan,green\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "start": "cd app/backend && node server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
