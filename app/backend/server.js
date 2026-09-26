@@ -135,10 +135,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal Server Error', error: err.message });
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
-  console.log(`\n🚀 AgriMind Unified API running on http://localhost:${PORT}`);
-  console.log(`📊 ML Profit & Disease Pipelines connected via /ml`);
-});
+// ─── Start Server (standalone mode) ───────────────────────────────────────────
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`\n🚀 AgriMind Unified API running on http://localhost:${PORT}`);
+    console.log(`📊 ML Profit & Disease Pipelines connected via /ml`);
+  });
+}
 
 module.exports = app;
