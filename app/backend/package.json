@@ -5,15 +5,27 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "jest --runInBand --forceExit",
+    "test:watch": "jest --watch",
+    "migrate": "node migrations/001_add_batch_support.js",
+    "migrate:dry": "node migrations/001_add_batch_support.js --dry-run"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.7.2",
     "mongoose": "^8.3.1",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^4.6.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2",
+    "supertest": "^7.3.0"
   }
 }

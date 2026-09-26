@@ -14,7 +14,13 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { spawn } = require('child_process');
+const mongoose = require('mongoose');
 const Prediction = require('../models/Prediction');
+const DiseaseTreatmentMap = require('../models/DiseaseTreatmentMap');
+const { findProductsByIngredients } = require('./products');
+const { SEED_DATA } = require('../seeds/diseaseTreatmentMap');
+
+const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
 // Upload directory setup
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -95,6 +101,54 @@ router.post('/disease', upload.single('image'), async (req, res) => {
           });
         }
 
+        // ─── Phase 15: Veterinary Treatment & Product Cross-link Enrichment ───
+        const confidence = result.confidence || 0;
+        const defaultDisclaimer = 'This is AI-assisted guidance only. Always consult a qualified hatchery technician or veterinarian before treatment.';
+
+        if (confidence < 0.70) {
+          result.prediction = 'unclear_result';
+          result.treatments = [];
+          result.products = [];
+          result.vetReferralRequired = false;
+          result.disclaimer = 'Diagnostic confidence is below 70%. Image features are inconclusive. No medications recommended. Please consult a qualified veterinarian.';
+        } else {
+          let treatmentDoc = null;
+          try {
+            treatmentDoc = await DiseaseTreatmentMap.findByLabel(result.prediction);
+          } catch (_) {}
+
+          if (!treatmentDoc && SEED_DATA) {
+            const key = String(result.prediction || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+            treatmentDoc = SEED_DATA.find(d => d.diseaseKey === key);
+          }
+
+          if (treatmentDoc) {
+            result.disclaimer = treatmentDoc.disclaimer || defaultDisclaimer;
+            result.vetReferralRequired = Boolean(treatmentDoc.vetReferralRequired);
+
+            if (treatmentDoc.treatable === false) {
+              result.treatments = [];
+              result.products = [];
+              result.supportiveCare = treatmentDoc.supportiveCare || [];
+            } else {
+              result.treatments = [
+                {
+                  activeIngredients: treatmentDoc.activeIngredients || [],
+                  supportiveCare: Array.isArray(treatmentDoc.supportiveCare)
+                    ? treatmentDoc.supportiveCare.join('. ')
+                    : (treatmentDoc.supportiveCare || ''),
+                  withdrawalNotes: 'Withdraw 5-7 days before slaughter or egg collection as per veterinary guidelines.'
+                }
+              ];
+              result.products = findProductsByIngredients(treatmentDoc.activeIngredients, 6);
+            }
+          } else {
+            result.treatments = [];
+            result.products = [];
+            result.disclaimer = defaultDisclaimer;
+          }
+        }
+
         // Save prediction record in-memory
         const predictionRecord = {
           _id: 'pred_' + Date.now(),
@@ -159,16 +213,18 @@ router.get('/history', async (req, res) => {
     const type = req.query.type;
     const farmId = req.query.farmId;
 
-    try {
-      const filter = {};
-      if (type) filter.type = type;
-      if (farmId) filter.farmId = farmId;
+    if (isDbConnected()) {
+      try {
+        const filter = {};
+        if (type) filter.type = type;
+        if (farmId) filter.farmId = farmId;
 
-      const history = await Prediction.find(filter).sort({ timestamp: -1 }).limit(limit);
-      if (history && history.length > 0) {
-        return res.json({ success: true, count: history.length, history });
-      }
-    } catch (e) {}
+        const history = await Prediction.find(filter).sort({ timestamp: -1 }).limit(limit);
+        if (history && history.length > 0) {
+          return res.json({ success: true, count: history.length, history });
+        }
+      } catch (e) {}
+    }
 
     let filtered = inMemoryPredictions;
     if (type) filtered = filtered.filter(p => p.type === type);

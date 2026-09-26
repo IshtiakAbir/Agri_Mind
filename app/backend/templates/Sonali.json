@@ -1,0 +1,150 @@
+{
+  "chickenType": "Sonali",
+  "version": "1.0.0",
+  "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
+  "cycleLengthDays": 70,
+  "disclaimer": "Sonali birds require strict early brooding warmth and proactive coccidiosis management on floor litter. Consult a licensed veterinarian.",
+  "stages": [
+    {
+      "name": "Early Brooding",
+      "fromDay": 0,
+      "toDay": 10,
+      "feed": "Sonali Starter Mash (21-22% crude protein)",
+      "targetTempC": [33.0, 35.0],
+      "targetHumidityPct": [60.0, 70.0],
+      "tips": [
+        "Sonali chicks are more temperature-sensitive than commercial broilers during the first week.",
+        "Ensure round brooding hover hovers provide even 34°C floor warmth.",
+        "Supply electrolyte water and cracked maize/mash on chick paper.",
+        "Monitor chick spread: huddling indicates cold, panting against walls indicates overheating."
+      ],
+      "milestones": [
+        {
+          "day": 4,
+          "key": "sonali-nd-ib-1",
+          "title": "Newcastle Disease (ND Baby Chick / Clone 30) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 eye-drop per chick with dedicated dropper. Hold chick until drop is absorbed."
+        },
+        {
+          "day": 9,
+          "key": "sonali-ibd-gumboro-1",
+          "title": "Infectious Bursal Disease (Gumboro Intermediate) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop in eye. Keep cold-chain ice box next to handler at all times."
+        }
+      ]
+    },
+    {
+      "name": "Late Brooding & Starter",
+      "fromDay": 11,
+      "toDay": 25,
+      "feed": "Sonali Starter Crumble (20% crude protein)",
+      "targetTempC": [28.0, 31.0],
+      "targetHumidityPct": [55.0, 65.0],
+      "tips": [
+        "Reduce supplemental brooding heat as feathered cover develops.",
+        "Increase floor area by expanding pen barriers gradually.",
+        "Rake litter twice weekly to maintain friable, dry bedding."
+      ],
+      "milestones": [
+        {
+          "day": 14,
+          "key": "sonali-fowl-pox",
+          "title": "Fowl Pox Wing-Web Puncture Vaccination",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Dip the double-needle applicator into reconstituted Fowl Pox vaccine and pierce the clean wing-web membrane. Avoid blood vessels and muscles."
+        },
+        {
+          "day": 18,
+          "key": "sonali-gumboro-booster",
+          "title": "Gumboro (IBD) Drinking Water Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Deprive birds of water for 2 hours beforehand. Dissolve vaccine with non-fat milk powder in clean water."
+        },
+        {
+          "day": 21,
+          "key": "sonali-weighing-day21",
+          "title": "Day 21 Flock Weighing & Transition Review",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh 5% of birds (target: 200-240g). Evaluate uniformity and check plumage development."
+        }
+      ]
+    },
+    {
+      "name": "Growing Phase",
+      "fromDay": 26,
+      "toDay": 50,
+      "feed": "Sonali Grower Pellets / Mash (18-19% crude protein)",
+      "targetTempC": [24.0, 28.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Provide perches or natural roosting slats to satisfy indigenous natural behavior.",
+        "Perform routine deworming around Day 35 to prevent Ascaridia / roundworm burden.",
+        "Ensure sufficient feeder space: at least 3-4 cm feeder edge per bird."
+      ],
+      "milestones": [
+        {
+          "day": 28,
+          "key": "sonali-nd-booster-water",
+          "title": "Newcastle Disease (ND LaSota) Drinking Water Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer live ND LaSota booster in morning drinking water. Ensure all water lines are pre-cleaned."
+        },
+        {
+          "day": 35,
+          "key": "sonali-deworming-course",
+          "title": "Routine Flock Deworming Treatment",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Administer approved broad-spectrum poultry anthelmintic (e.g. Levamisole or Piperazine) in drinking water according to flock body weight."
+        },
+        {
+          "day": 42,
+          "key": "sonali-weighing-day42",
+          "title": "Day 42 Mid-Cycle Weighing Benchmark",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Sample 50 birds across pen areas (target: 480-550g). Record weight uniformity percentage."
+        }
+      ]
+    },
+    {
+      "name": "Finishing Phase",
+      "fromDay": 51,
+      "toDay": 70,
+      "feed": "Sonali Finisher Pellets (16-17% crude protein)",
+      "targetTempC": [20.0, 25.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Optimize yellow skin / shanks pigmentation if demanded by premium local market via natural maize or marigold extracts.",
+        "Ensure good ventilation to maintain dry litter and prevent breast blisters.",
+        "Check withdrawal times for any recent medications before sale."
+      ],
+      "milestones": [
+        {
+          "day": 56,
+          "key": "sonali-weighing-day56",
+          "title": "Day 56 Pre-Market Weight Sampling",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh representative birds (target: 700-800g). Gauge market readiness."
+        },
+        {
+          "day": 70,
+          "key": "sonali-harvest-close",
+          "title": "Final Market Harvest Weighing & Batch Close",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Target live weight: 850-1000g. Record total sold birds, final average weight, and gross revenue."
+        }
+      ]
+    }
+  ]
+}

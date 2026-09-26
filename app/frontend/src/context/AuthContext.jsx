@@ -142,6 +142,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginGuest = async () => {
+    try {
+      const res = await fetch('/api/auth/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { success: true };
+      }
+    } catch (_) {}
+    const fallbackUser = { id: '65fc20a1b900000000000001', name: 'Demo Farmer (Guest)', mobile: '01700000000', role: 'farmer' };
+    setUser(fallbackUser);
+    return { success: true };
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
@@ -157,6 +176,7 @@ export const AuthProvider = ({ children }) => {
         language,
         toggleLanguage,
         login,
+        loginGuest,
         register,
         logout,
         updateProfile,

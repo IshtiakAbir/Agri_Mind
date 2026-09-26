@@ -1,0 +1,126 @@
+{
+  "chickenType": "Cock",
+  "version": "1.0.0",
+  "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
+  "cycleLengthDays": 75,
+  "disclaimer": "Meat cockerels (Gallus gallus domesticus) require aggressive early protection against Newcastle and Gumboro diseases, plus adequate floor space to prevent aggression.",
+  "stages": [
+    {
+      "name": "Brooding",
+      "fromDay": 0,
+      "toDay": 12,
+      "feed": "Cockerel Starter Crumble (21% crude protein)",
+      "targetTempC": [33.0, 35.0],
+      "targetHumidityPct": [60.0, 70.0],
+      "tips": [
+        "Brooding temperature must be kept steady during first 10 days.",
+        "Provide electrolyte and multi-vitamin water on arrival.",
+        "Keep drinkers clean and check daily for wet spots in brooding rings."
+      ],
+      "milestones": [
+        {
+          "day": 4,
+          "key": "cock-nd-eyedrop-1",
+          "title": "Newcastle Disease (ND Clone 30 / BCRDV) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 eye-drop per chick. Keep vaccine vials chilled on crushed ice."
+        },
+        {
+          "day": 10,
+          "key": "cock-gumboro-eyedrop-1",
+          "title": "Gumboro (IBD Intermediate) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop of Gumboro vaccine in eye. Confirm drop absorption before releasing bird."
+        }
+      ]
+    },
+    {
+      "name": "Growing Phase",
+      "fromDay": 13,
+      "toDay": 45,
+      "feed": "Cockerel Grower Mash / Pellets (19% crude protein)",
+      "targetTempC": [25.0, 29.0],
+      "targetHumidityPct": [55.0, 65.0],
+      "tips": [
+        "Cockerels are active and energetic; ensure adequate feeder and drinker spacing to prevent feather pecking.",
+        "Ensure good cross-ventilation to remove dust and humidity.",
+        "Rake litter twice weekly."
+      ],
+      "milestones": [
+        {
+          "day": 17,
+          "key": "cock-gumboro-booster-water",
+          "title": "Gumboro (IBD) Drinking Water Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Withdraw water for 2 hours, mix vaccine with non-chlorinated water and skimmed milk powder (2g/L)."
+        },
+        {
+          "day": 24,
+          "key": "cock-nd-lasota-booster",
+          "title": "Newcastle Disease (ND LaSota) Drinking Water Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer live ND LaSota in clean morning drinking water. Ensure full consumption within 2 hours."
+        },
+        {
+          "day": 30,
+          "key": "cock-weighing-day30",
+          "title": "Day 30 Growth & Uniformity Weighing",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Sample 5% of cockerels (target: 350-420g). Check breast muscle development."
+        },
+        {
+          "day": 40,
+          "key": "cock-deworming-treatment",
+          "title": "Mid-Cycle Deworming Routine",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Administer broad-spectrum anthelmintic (e.g. Levamisole or Albendazole) in drinking water according to flock weight."
+        }
+      ]
+    },
+    {
+      "name": "Hardening & Finishing",
+      "fromDay": 46,
+      "toDay": 75,
+      "feed": "Finisher Pellets (16-17% crude protein)",
+      "targetTempC": [21.0, 26.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Keep sheds well-ventilated during hot afternoons.",
+        "Maintain clean, dry bedding to preserve footpad health and shank coloration.",
+        "Monitor live bird weight progression weekly."
+      ],
+      "milestones": [
+        {
+          "day": 50,
+          "key": "cock-fowl-cholera-booster",
+          "title": "Fowl Cholera (Pasteurella multocida) Booster",
+          "category": "Vaccination",
+          "critical": false,
+          "instructions": "Administer inactivated Fowl Cholera vaccine subcutaneously according to manufacturer instructions."
+        },
+        {
+          "day": 60,
+          "key": "cock-weighing-day60",
+          "title": "Day 60 Pre-Harvest Weighing",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Sample 50 birds (target: 850-1000g). Project slaughter or live trade dispatch date."
+        },
+        {
+          "day": 75,
+          "key": "cock-harvest-close",
+          "title": "Final Market Harvest Weighing & Batch Close",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Record final flock average weight (target: 1.1-1.3 kg), birds sold, and gross revenue."
+        }
+      ]
+    }
+  ]
+}

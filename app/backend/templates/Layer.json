@@ -1,0 +1,198 @@
+{
+  "chickenType": "Layer",
+  "version": "1.0.0",
+  "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
+  "cycleLengthDays": 365,
+  "disclaimer": "Commercial egg layers require precision lighting schedules, calcium balance, and Egg Drop Syndrome (EDS) vaccination. Consult your veterinary flock supervisor.",
+  "stages": [
+    {
+      "name": "Brooding",
+      "fromDay": 0,
+      "toDay": 28,
+      "feed": "Layer Chick Starter Mash (20-21% crude protein)",
+      "targetTempC": [30.0, 35.0],
+      "targetHumidityPct": [60.0, 70.0],
+      "tips": [
+        "Brooding uniformity during weeks 1-4 dictates lifetime peak egg lay.",
+        "Gradually decrease brooding temperature 0.5°C daily from 35°C down to 24°C by day 28.",
+        "Clean drinkers daily and maintain dry litter bedding."
+      ],
+      "milestones": [
+        {
+          "day": 1,
+          "key": "layer-mareks-check",
+          "title": "Hatchery Marek's Disease (HVT) Vaccination Audit",
+          "category": "Medication",
+          "critical": true,
+          "instructions": "Verify hatchery Marek's HVT injection certificate and inspect day-old pullet chick vigor."
+        },
+        {
+          "day": 4,
+          "key": "layer-nd-ib-eyedrop",
+          "title": "Newcastle Disease + Infectious Bronchitis (ND+IB) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop of combined ND+IB live vaccine in one eye. Ensure complete absorption."
+        },
+        {
+          "day": 12,
+          "key": "layer-gumboro-eyedrop",
+          "title": "Infectious Bursal Disease (Gumboro) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop of intermediate plus strain in eye."
+        },
+        {
+          "day": 21,
+          "key": "layer-nd-lasota-eyedrop",
+          "title": "Newcastle Disease (ND LaSota) Booster Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer live ND LaSota eye-drop to booster systemic mucosal immunity."
+        },
+        {
+          "day": 28,
+          "key": "layer-weighing-day28",
+          "title": "Day 28 Pullet Weighing & Frame Growth Check",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh 5% of flock (target: 280-320g). Target 85%+ flock uniformity."
+        }
+      ]
+    },
+    {
+      "name": "Grower",
+      "fromDay": 29,
+      "toDay": 70,
+      "feed": "Layer Grower Mash (17-18% crude protein)",
+      "targetTempC": [24.0, 28.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Focus on skeletal and shank development; avoid excessive body fat.",
+        "Keep natural or artificial lighting constant (8-10 hours) to prevent premature sexual maturity.",
+        "Ensure perches and feeder access are ample."
+      ],
+      "milestones": [
+        {
+          "day": 35,
+          "key": "layer-beak-conditioning",
+          "title": "Precision Infrared Beak Conditioning / Trimming Audit",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Audit pullet beak uniformity to prevent feather pecking and egg cannibalism. Supplement Vitamin K in water for 48 hours."
+        },
+        {
+          "day": 42,
+          "key": "layer-fowl-pox-wingweb",
+          "title": "Fowl Pox Wing-Web Inoculation",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer Fowl Pox vaccine via wing-web puncture. Check scab take at day 50."
+        },
+        {
+          "day": 56,
+          "key": "layer-nd-ib-killed-inj",
+          "title": "Inactivated ND + IB Killed Vaccine Intramuscular Injection",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Inject 0.5 ml inactivated oil-adjuvant ND+IB vaccine into breast muscle or thigh using sterile 18G needle."
+        },
+        {
+          "day": 70,
+          "key": "layer-weighing-day70",
+          "title": "Day 70 Pullet Body Weight Benchmark",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh sample pullets (target: 650-750g). Confirm skeletal shank length."
+        }
+      ]
+    },
+    {
+      "name": "Developer & Pre-Lay",
+      "fromDay": 71,
+      "toDay": 126,
+      "feed": "Developer & Pre-Lay Mash (15-16% crude protein, 2.5% Ca)",
+      "targetTempC": [20.0, 25.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Increase calcium in feed around week 16-17 to develop medullary bone reserves for future eggshells.",
+        "Commence photostimulation: increase light duration by 30-60 minutes weekly towards a 16-hour day.",
+        "Transfer pullets to layer cages or deep litter laying quarters by Day 120-126."
+      ],
+      "milestones": [
+        {
+          "day": 84,
+          "key": "layer-deworming-prelay",
+          "title": "Pre-Lay Broad-Spectrum Deworming",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Administer veterinary approved dewormer in morning water to clear internal parasite burden before laying onset."
+        },
+        {
+          "day": 112,
+          "key": "layer-nd-eds-ib-killed",
+          "title": "ND + EDS (Egg Drop Syndrome) + IB Triple Killed Injection",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Inject 0.5 ml triple killed emulsion intramuscularly. Protects lay against catastrophic egg drop syndrome."
+        },
+        {
+          "day": 126,
+          "key": "layer-transfer-weighing",
+          "title": "Laying Quarters Transfer & Pre-Lay Weighing",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Weigh pullets (target: 1.35-1.50 kg). Ensure nests and automatic nipple lines are sanitized."
+        }
+      ]
+    },
+    {
+      "name": "Production & Laying",
+      "fromDay": 127,
+      "toDay": 365,
+      "feed": "Layer Phase-1 Mash (17% crude protein, 3.8-4.2% Ca)",
+      "targetTempC": [18.0, 24.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Maintain strict 16 hours light / 8 hours darkness schedule every single day.",
+        "Provide coarse limestone or oyster shell grit in the late afternoon to support overnight calcification.",
+        "Collect eggs at least 3-4 times daily to prevent cracking and nest soiling.",
+        "Record daily egg production and calculate hen-day egg percentage (HDP)."
+      ],
+      "milestones": [
+        {
+          "day": 140,
+          "key": "layer-first-egg-milestone",
+          "title": "Onset of Lay (5% Flock Production Milestone)",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Record date of first egg. Transition feed fully to high-calcium Layer Phase-1 formulation."
+        },
+        {
+          "day": 175,
+          "key": "layer-peak-production-check",
+          "title": "Peak Lay Audit (Target 90%+ Hen-Day Production)",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Audit daily egg trays against live hen count. Check average egg weight (target: 58-62g) and shell hardness."
+        },
+        {
+          "day": 250,
+          "key": "layer-mid-cycle-shell-audit",
+          "title": "Mid-Cycle Layer Health & Egg Shell Quality Audit",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Check egg breaking strength and shell thickness. Supplement Vitamin D3 and organic minerals if necessary."
+        },
+        {
+          "day": 365,
+          "key": "layer-cycle-close-audit",
+          "title": "52-Week Layer Production Cycle Audit & Batch Close",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Summarize total lifetime eggs produced, total feed consumed, cumulative mortality, and calculate final flock profit."
+        }
+      ]
+    }
+  ]
+}

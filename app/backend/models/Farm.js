@@ -113,6 +113,18 @@ const FarmSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    brokenEggs: {
+      type: Number,
+      default: 0
+    },
+    eggsSold: {
+      type: Number,
+      default: 0
+    },
+    brokenEggPrice: {
+      type: Number,
+      default: 0
+    },
     chickensSold: {
       type: Number,
       default: 1550

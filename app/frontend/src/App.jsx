@@ -9,37 +9,55 @@
  */
 
 import React, { useState, useContext } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, AuthContext } from './context/AuthContext';
+import { BatchProvider } from './context/BatchContext';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import Dashboard from './components/Dashboard';
-import MyFarm from './components/MyFarm';
 import Marketplace from './components/Marketplace';
 import DiseaseDetection from './components/DiseaseDetection';
 import PredictionHistory from './components/PredictionHistory';
 import EmployeeSupport from './components/EmployeeSupport';
+import SmartPoultry from './components/SmartPoultry';
+import DoctorDirectory from './components/DoctorDirectory';
 import {
   Feather,
+  Bird,
   LayoutDashboard,
-  Warehouse,
   ShoppingBag,
   Activity,
   Database,
   UserCheck,
   Globe,
   LogOut,
-  User,
-  ShieldCheck,
-  Sparkles
+  Sparkles,
+  Stethoscope
 } from 'lucide-react';
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 60000,
+    },
+  },
+});
+
 const MainApp = () => {
-  const { user, logout, language, toggleLanguage, loading } = useContext(AuthContext);
+  const { user, logout, language, toggleLanguage, loading, loginGuest } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [authView, setAuthView] = useState('login'); // 'login' or 'register'
   const [skipAuth, setSkipAuth] = useState(false);
   const [activeFarmId, setActiveFarmId] = useState(() => localStorage.getItem('farmId') || null);
   const [historyTrigger, setHistoryTrigger] = useState(0);
+
+  const handleGuestAccess = async () => {
+    try {
+      if (loginGuest) await loginGuest();
+    } catch (_) {}
+    setSkipAuth(true);
+  };
 
   const handlePredictionSaved = () => {
     setHistoryTrigger(prev => prev + 1);
@@ -55,13 +73,14 @@ const MainApp = () => {
   // Translations
   const t = {
     dashboard: language === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard',
-    myFarm: language === 'bn' ? 'আমার খামার' : 'My Farm',
+    flocks: language === 'bn' ? 'স্মার্ট পোল্ট্রি' : 'Smart Poultry',
     marketplace: language === 'bn' ? 'মার্কেটপ্লেস' : 'Marketplace',
-    disease: language === 'bn' ? 'রোগ নির্ণয়' : 'Disease Classifier',
+    disease: language === 'bn' ? 'রোগ নির্ণয়' : 'Disease Classifier',
     history: language === 'bn' ? 'অডিট লগ' : 'Audit Logs',
     employee: language === 'bn' ? 'কর্মচারী টুলস' : 'Employee Tools',
+    doctors: language === 'bn' ? 'ডাক্তার' : 'Doctors',
     logout: language === 'bn' ? 'বাহির হন' : 'Log Out',
-    demoAccess: language === 'bn' ? 'লগইন ছাড়া ব্যবহার করুন →' : 'Continue as Guest / Open Access →',
+    demoAccess: language === 'bn' ? 'লগইন ছাড়া ব্যবহার করুন →' : 'Continue as Guest / Open Access →',
     subtitle: language === 'bn' ? 'স্মার্ট পোল্ট্রি স্বাস্থ্য, বাণিজ্য ও লাভ পূর্বাভাস' : 'Smart Poultry Health, Trade & Financial Intelligence'
   };
 
@@ -84,17 +103,17 @@ const MainApp = () => {
         {authView === 'login' ? (
           <LoginPage
             onNavigateToRegister={() => setAuthView('register')}
-            onSkip={() => setSkipAuth(true)}
+            onSkip={handleGuestAccess}
           />
         ) : (
           <RegisterPage
             onNavigateToLogin={() => setAuthView('login')}
-            onSkip={() => setSkipAuth(true)}
+            onSkip={handleGuestAccess}
           />
         )}
         <div className="py-4 text-center border-t border-slate-900 bg-slate-950">
           <button
-            onClick={() => setSkipAuth(true)}
+            onClick={handleGuestAccess}
             className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
           >
             {t.demoAccess}
@@ -104,12 +123,13 @@ const MainApp = () => {
     );
   }
 
-  // Authenticated Tabs
+  // Authenticated Tabs — "My Farm" removed; "Smart Poultry" is the sole farm nav entry
   const tabs = [
     { id: 'dashboard', label: t.dashboard, icon: LayoutDashboard },
-    { id: 'myfarm', label: t.myFarm, icon: Warehouse },
+    { id: 'flocks', label: t.flocks, icon: Bird },
     { id: 'market', label: t.marketplace, icon: ShoppingBag },
     { id: 'disease', label: t.disease, icon: Activity },
+    { id: 'doctors', label: t.doctors, icon: Stethoscope },
     { id: 'history', label: t.history, icon: Database },
   ];
 
@@ -171,15 +191,6 @@ const MainApp = () => {
               <span>{language === 'bn' ? 'বাংলা' : 'EN'}</span>
             </button>
 
-            {/* Farm Shortcut */}
-            <button
-              onClick={() => setActiveTab('myfarm')}
-              className="hidden sm:flex items-center space-x-1.5 bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-800 text-[11px] text-emerald-400 transition-colors font-semibold"
-            >
-              <Warehouse className="w-3.5 h-3.5" />
-              <span>{t.myFarm}</span>
-            </button>
-
             {/* User Profile / Logout */}
             {user ? (
               <div className="flex items-center space-x-2 pl-1">
@@ -231,11 +242,10 @@ const MainApp = () => {
             onFarmRegistered={handleFarmRegistered}
           />
         )}
-        {activeTab === 'myfarm' && (
-          <MyFarm
+        {activeTab === 'flocks' && (
+          <SmartPoultry
             activeFarmId={activeFarmId}
             setActiveFarmId={setActiveFarmId}
-            setActiveTab={setActiveTab}
           />
         )}
         {activeTab === 'market' && (
@@ -251,6 +261,9 @@ const MainApp = () => {
             farmId={activeFarmId}
           />
         )}
+        {activeTab === 'doctors' && (
+          <DoctorDirectory />
+        )}
         {activeTab === 'history' && (
           <PredictionHistory
             key={historyTrigger}
@@ -261,24 +274,31 @@ const MainApp = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>© 2026 AgriMind. Unified Poultry Health, Trade & Financial Intelligence Platform.</p>
+      <footer className="border-t border-slate-900 bg-slate-950 py-6">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-center sm:text-left">
+            <p className="text-xs text-slate-500">© 2026 AgriMind. Unified Poultry Health, Trade & Financial Intelligence Platform.</p>
+            <p className="text-[10px] text-slate-600 mt-1">Built for Bangladesh poultry farmers • Contact: support@agrimind.app</p>
+          </div>
           <div className="flex items-center gap-4 text-[11px] text-slate-400">
-            <button onClick={() => setActiveTab('dashboard')} className="hover:text-emerald-400">
-              {t.dashboard}
+            <button onClick={() => setActiveTab('market')} className="hover:text-emerald-400 transition-colors">
+              Marketplace
             </button>
             <span>•</span>
-            <button onClick={() => setActiveTab('myfarm')} className="hover:text-emerald-400">
-              {t.myFarm}
+            <button onClick={() => setActiveTab('disease')} className="hover:text-emerald-400 transition-colors">
+              Diagnostics
             </button>
             <span>•</span>
-            <button onClick={() => setActiveTab('market')} className="hover:text-emerald-400">
-              {t.marketplace}
+            <button onClick={() => setActiveTab('doctors')} className="hover:text-emerald-400 transition-colors">
+              Doctors
             </button>
             <span>•</span>
-            <button onClick={() => setActiveTab('disease')} className="hover:text-emerald-400">
-              {t.disease}
+            <button onClick={() => setActiveTab('flocks')} className="hover:text-emerald-400 transition-colors">
+              Smart Poultry
+            </button>
+            <span>•</span>
+            <button onClick={() => setActiveTab('history')} className="hover:text-emerald-400 transition-colors">
+              Reports
             </button>
           </div>
         </div>
@@ -289,8 +309,12 @@ const MainApp = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BatchProvider>
+          <MainApp />
+        </BatchProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

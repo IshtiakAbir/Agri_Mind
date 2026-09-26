@@ -9,6 +9,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { getWeatherForCity } = require('../services/weatherService');
 
 function getWeatherCondition(code) {
   if (code === 0) return { condition: 'Clear Sky', icon: 'sun' };
@@ -23,56 +24,36 @@ function getWeatherCondition(code) {
 }
 
 // @route   GET /api/weather
-// @desc    Get real-time weather by city & country
+// @desc    Get real-time weather by city & country with heat index & microclimate stats
 // @access  Public
 router.get('/', async (req, res) => {
   try {
     const city = req.query.city || 'Dhaka';
     const country = req.query.country || 'Bangladesh';
+    const forceRefresh = req.query.refresh === 'true';
 
-    let lat = 23.8103;
-    let lon = 90.4125;
-    let resolvedCity = city;
-    let resolvedCountry = country;
+    const reading = await getWeatherForCity(city, { forceRefresh });
+    const weatherCode = reading.weatherCode ?? 1;
+    const { condition, icon } = getWeatherCondition(weatherCode);
 
-    try {
-      const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
-      const geoRes = await fetch(geoUrl);
-      if (geoRes.ok) {
-        const geoData = await geoRes.json();
-        if (geoData.results && geoData.results.length > 0) {
-          lat = geoData.results[0].latitude;
-          lon = geoData.results[0].longitude;
-          resolvedCity = geoData.results[0].name || city;
-          resolvedCountry = geoData.results[0].country || country;
-        }
-      }
-    } catch (e) {}
-
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`;
-    const weatherRes = await fetch(weatherUrl);
-
-    if (weatherRes.ok) {
-      const weatherData = await weatherRes.json();
-      const current = weatherData.current || {};
-      const weatherCode = current.weather_code ?? 0;
-      const { condition, icon } = getWeatherCondition(weatherCode);
-
-      return res.json({
-        success: true,
-        city: resolvedCity,
-        country: resolvedCountry,
-        temperature: Math.round((current.temperature_2m ?? 28) * 10) / 10,
-        humidity: Math.round(current.relative_humidity_2m ?? 65),
-        windSpeed: Math.round((current.wind_speed_10m ?? 10) * 10) / 10,
-        weatherCode,
-        condition,
-        icon,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    throw new Error('Weather API fallback');
+    return res.json({
+      success: true,
+      city: reading.cityName || city,
+      country: country,
+      temperature: reading.temperatureC,
+      humidity: reading.humidityPct,
+      windSpeed: reading.windKph,
+      apparentTemperature: reading.apparentTempC,
+      heatIndex: reading.heatIndexC,
+      forecastMax24h: reading.forecastMaxC24h,
+      weatherCode,
+      condition,
+      icon,
+      isCached: reading.isCached || false,
+      isStale: reading.isStale || false,
+      staleNotice: reading.staleNotice || null,
+      timestamp: reading.fetchedAt || new Date().toISOString()
+    });
   } catch (err) {
     return res.json({
       success: true,
@@ -81,9 +62,15 @@ router.get('/', async (req, res) => {
       temperature: 28.5,
       humidity: 68,
       windSpeed: 11.2,
+      apparentTemperature: 31.0,
+      heatIndex: 30.5,
+      forecastMax24h: 32.0,
       weatherCode: 1,
       condition: 'Partly Cloudy',
       icon: 'cloud-sun',
+      isCached: false,
+      isStale: true,
+      staleNotice: 'Default baseline weather parameters active.',
       timestamp: new Date().toISOString()
     });
   }

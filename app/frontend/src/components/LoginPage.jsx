@@ -1,44 +1,75 @@
+/**
+ * =============================================================================
+ * Module: Login Page
+ * Authorship: Full-Stack Web Team (agrimind-main) — Redesigned for Unified Platform
+ * Component: /app/frontend/src/components/LoginPage.jsx
+ * Description: Premium dark-themed login with bilingual support, mobile input,
+ *              password field, and smooth micro-animations.
+ * =============================================================================
+ */
+
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import ForgotPasswordModal from './ForgotPasswordModal';
-import { Smartphone, Lock, LogIn, UserPlus, AlertCircle, HelpCircle } from 'lucide-react';
+import {
+  Feather,
+  Smartphone,
+  Lock,
+  LogIn,
+  UserPlus,
+  AlertCircle,
+  Globe,
+  Eye,
+  EyeOff,
+  Sparkles,
+  ShieldCheck
+} from 'lucide-react';
 
-const LoginPage = ({ onNavigateToRegister }) => {
-  const { login, language, setLanguage } = useContext(AuthContext);
+const LoginPage = ({ onNavigateToRegister, onSkip }) => {
+  const { login, language, toggleLanguage } = useContext(AuthContext);
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isForgotOpen, setIsForgotOpen] = useState(false);
 
-  // Translation dictionary
   const t = {
-    brandTitle: language === 'bn' ? 'সহজ উপায়ে মুরগি খামার পরিচালনা করুন' : 'Manage your poultry farm the simple way',
-    brandDesc: language === 'bn' 
-      ? 'খামারের খাবার, ওষুধ এবং ডিমের হিসাব রাখুন খুব সহজে। ছবি ও চিহ্নের মাধ্যমে সহজে ব্যবহার করুন।' 
-      : 'Keep track of farm feed, medicine, and egg logs effortlessly. Designed with clear signs and icons.',
-    brandSubDesc: language === 'bn' 
-      ? 'সহজ ভিজ্যুয়াল আইকন এবং চিহ্নের মাধ্যমে খামার পরিচালনা করুন।' 
-      : 'Easily manage your poultry farm using simple visual icons.',
-    loginTitle: language === 'bn' ? 'লগইন করুন' : 'Log In',
-    loginSubtitle: language === 'bn' 
-      ? 'আপনার অ্যাকাউন্টে প্রবেশ করতে মোবাইল নম্বর ও পাসওয়ার্ড দিন।' 
-      : 'Enter your mobile number and password to access your account.',
+    brandTitle: language === 'bn' ? 'সহজ উপায়ে মুরগি খামার পরিচালনা করুন' : 'Manage your poultry farm the smart way',
+    brandDesc: language === 'bn'
+      ? 'খামারের খাবার, ওষুধ এবং ডিমের হিসাব রাখুন খুব সহজে। AI-চালিত রোগ নির্ণয় ও লাভ পূর্বাভাস।'
+      : 'AI-powered disease diagnostics, automated profit forecasting, and a marketplace — all in one platform.',
+    loginTitle: language === 'bn' ? 'লগইন করুন' : 'Welcome Back',
+    loginSubtitle: language === 'bn'
+      ? 'আপনার অ্যাকাউন্টে প্রবেশ করতে মোবাইল নম্বর ও পাসওয়ার্ড দিন।'
+      : 'Sign in with your mobile number and password.',
     mobileLabel: language === 'bn' ? 'মোবাইল নম্বর' : 'Mobile Number',
     mobilePlaceholder: language === 'bn' ? '০১৭১২৩৪৫৬৭৮' : '01712345678',
-    mobileHelp: language === 'bn' ? 'নিবন্ধনকৃত ১১ ডিজিটের মোবাইল নম্বরটি লিখুন।' : 'Enter your registered 11-digit mobile number.',
     passwordLabel: language === 'bn' ? 'পাসওয়ার্ড' : 'Password',
-    forgotPassLink: language === 'bn' ? 'পাসওয়ার্ড ভুলে গেছেন?' : 'Forgot Password?',
-    loginBtn: language === 'bn' ? 'প্রবেশ করুন' : 'Log In',
-    noAccountText: language === 'bn' ? 'নতুন খামারী বা একাউন্ট নেই?' : 'New farmer or no account yet?',
-    registerBtn: language === 'bn' ? 'নতুন অ্যাকাউন্ট খুলুন' : 'Create Account',
+    passwordPlaceholder: language === 'bn' ? 'আপনার পাসওয়ার্ড দিন' : 'Enter your password',
+    loginBtn: language === 'bn' ? 'প্রবেশ করুন' : 'Sign In',
+    noAccountText: language === 'bn' ? 'নতুন খামারী?' : "Don't have an account?",
+    registerBtn: language === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন' : 'Create Account',
+    demoAccess: language === 'bn' ? 'লগইন ছাড়া সরাসরি প্রবেশ করুন →' : 'Instant Guest Access (No Login) →',
+    demoFarmerBtn: language === 'bn' ? '🧑‍🌾 খামারী ডেমো (১-ক্লিক)' : '🧑‍🌾 Demo Farmer (1-Click)',
+    demoStaffBtn: language === 'bn' ? '💼 কর্মকর্তা ডেমো (১-ক্লিক)' : '💼 Staff Demo (1-Click)',
     invalidMobileErr: language === 'bn'
-      ? 'মোবাইল নম্বরটি অবশ্যই ১১ ডিজিটের হতে হবে এবং ০১ দিয়ে শুরু হতে হবে।'
+      ? 'মোবাইল নম্বরটি অবশ্যই ১১ ডিজিটের হতে হবে এবং ০১ দিয়ে শুরু হতে হবে।'
       : 'Mobile number must be 11 digits and start with 01.',
-    emptyPassErr: language === 'bn'
-      ? 'পাসওয়ার্ড দিন।'
-      : 'Please enter your password.',
-    footerText: language === 'bn' ? 'সকল অধিকার সংরক্ষিত।' : 'All rights reserved.'
+    emptyPassErr: language === 'bn' ? 'পাসওয়ার্ড দিন।' : 'Please enter your password.',
+    features: language === 'bn'
+      ? ['AI রোগ নির্ণয়', 'ML লাভ পূর্বাভাস', 'খামার মার্কেটপ্লেস']
+      : ['AI Disease Detection', 'ML Profit Forecasting', 'Farm Marketplace']
+  };
+
+  const handleQuickLogin = async (demoMobile, demoPassword) => {
+    setMobile(demoMobile);
+    setPassword(demoPassword);
+    setError('');
+    setLoading(true);
+    const result = await login(demoMobile, demoPassword);
+    setLoading(false);
+    if (!result.success) {
+      setError(result.message);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -49,7 +80,6 @@ const LoginPage = ({ onNavigateToRegister }) => {
       setError(t.invalidMobileErr);
       return;
     }
-
     if (!password) {
       setError(t.emptyPassErr);
       return;
@@ -65,172 +95,207 @@ const LoginPage = ({ onNavigateToRegister }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-gradient-to-br from-farm-neonTeal via-farm-green to-farm-deepBlue bg-[length:200%_200%] animate-gradient-x relative overflow-hidden">
-      
-      {/* Global Language Selector (floating in top right for all screens) */}
-      <div className="absolute top-4 right-4 z-40 flex items-center glass-panel p-1 rounded-2xl">
-        <button
-          onClick={() => setLanguage('bn')}
-          className={`px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all ${
-            language === 'bn' 
-              ? 'bg-gradient-to-r from-farm-green to-farm-darkGreen text-white shadow-md shadow-emerald-700/10' 
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          বাংলা
-        </button>
-        <button
-          onClick={() => setLanguage('en')}
-          className={`px-4 py-2 rounded-xl text-xs font-black tracking-wide transition-all ${
-            language === 'en' 
-              ? 'bg-gradient-to-r from-farm-green to-farm-darkGreen text-white shadow-md shadow-emerald-700/10' 
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          English
-        </button>
-      </div>
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-950 relative overflow-hidden">
+      {/* Ambient glow effects */}
+      <div className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-200px] right-[-200px] w-[500px] h-[500px] rounded-full bg-teal-500/5 blur-[100px] pointer-events-none" />
 
-      {/* Visual branding banner left pane */}
-      <div className="w-full md:w-1/2 text-white p-8 sm:p-12 md:p-16 flex flex-col justify-between items-center text-center md:text-left md:items-start relative overflow-hidden min-h-[350px] md:min-h-screen bg-black/10 backdrop-blur-md">
-        
-        {/* Animated background shapes */}
-        <div className="absolute -bottom-20 -left-20 w-96 h-96 rounded-full bg-farm-vividAmber/30 blur-3xl animate-float-slow"></div>
-        <div className="absolute top-10 right-10 w-80 h-80 rounded-full bg-farm-brightCoral/30 blur-3xl animate-pulse-ring"></div>
+      {/* Language toggle (top-right, always visible) */}
+      <button
+        onClick={toggleLanguage}
+        className="absolute top-5 right-5 z-50 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-xs font-bold text-slate-300 transition-all backdrop-blur-md"
+      >
+        <Globe className="w-3.5 h-3.5 text-emerald-400" />
+        <span>{language === 'bn' ? 'English' : 'বাংলা'}</span>
+      </button>
 
-        {/* Top Header Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-white shadow-xl flex items-center justify-center text-3xl animate-float select-none">
-            🐔
+      {/* Left Branding Panel */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center lg:items-start p-8 sm:p-12 lg:p-16 relative">
+        {/* Logo */}
+        <div className="flex items-center gap-3.5 mb-10">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-lg shadow-emerald-900/40">
+            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+              <Feather className="w-7 h-7 text-emerald-400" />
+            </div>
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">AgriMind</h1>
-            <span className="text-emerald-100 text-xs font-bold uppercase tracking-widest block">
-              {language === 'bn' ? 'কৃষি ও খামার' : 'Smart Poultry'}
+            <h1 className="text-2xl font-bold text-slate-100 tracking-tight">AgriMind</h1>
+            <span className="text-[11px] font-semibold text-emerald-400/70 uppercase tracking-widest">
+              {language === 'bn' ? 'স্মার্ট পোল্ট্রি' : 'Smart Poultry'}
             </span>
           </div>
         </div>
 
-        {/* Big poultry welcome illustration and headlines */}
-        <div className="my-auto max-w-md py-6">
-          <div className="text-5xl sm:text-6xl mb-6 select-none">🐣🌾</div>
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-tight mb-4 text-white">
+        {/* Big headline */}
+        <div className="max-w-md text-center lg:text-left mb-8">
+          <h2 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-tight text-slate-100 mb-4">
             {t.brandTitle}
           </h2>
-          <p className="text-emerald-55 text-sm sm:text-base font-semibold leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-400 font-medium leading-relaxed">
             {t.brandDesc}
           </p>
-          <div className="mt-2.5 text-xs text-emerald-200 font-medium">
-            {t.brandSubDesc}
-          </div>
         </div>
 
-        {/* Bottom footer credit */}
-        <div className="text-xs text-emerald-205 font-bold mt-4">
-          © {new Date().getFullYear()} AgriMind App. {t.footerText}
+        {/* Feature badges */}
+        <div className="flex flex-wrap gap-2.5 justify-center lg:justify-start">
+          {t.features.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-xs font-semibold text-emerald-300"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{f}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom credit (desktop only) */}
+        <div className="hidden lg:block mt-auto pt-12 text-xs text-slate-600 font-medium">
+          © {new Date().getFullYear()} AgriMind — Unified Poultry Intelligence Platform
         </div>
       </div>
 
-      {/* Login Form pane */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-4 sm:p-8 md:p-12 relative z-10 min-h-[450px] md:min-h-screen">
-        <div className="w-full max-w-md space-y-8 glass-panel p-8 sm:p-10 rounded-3xl">
-          
-          {/* Header titles */}
-          <div className="text-center md:text-left">
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight flex items-center justify-center md:justify-start gap-2">
-              <span>{t.loginTitle}</span>
-              <span className="text-farm-green">🔑</span>
-            </h2>
-            <p className="text-sm font-semibold text-slate-500 mt-2">
-              {t.loginSubtitle}
-            </p>
-          </div>
+      {/* Right Form Panel */}
+      <div className="w-full lg:w-[55%] flex items-center justify-center p-6 sm:p-10 lg:p-16">
+        <div className="w-full max-w-[420px] space-y-7">
 
-          {/* Error notifications */}
-          {error && (
-            <div className="flex items-start gap-3 p-4 text-sm text-red-750 bg-red-50 border-l-4 border-red-500 rounded-r-2xl animate-shake">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div className="font-bold whitespace-pre-line leading-relaxed">{error}</div>
+          {/* Glass card */}
+          <div className="rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl p-8 sm:p-10 shadow-2xl shadow-slate-950/50 space-y-6">
+
+            {/* Header */}
+            <div>
+              <h2 className="text-2xl font-bold text-slate-100 tracking-tight">{t.loginTitle}</h2>
+              <p className="text-sm text-slate-400 mt-1.5 font-medium">{t.loginSubtitle}</p>
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Phone Number Field */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                <Smartphone className="w-4.5 h-4.5 text-farm-green" />
-                {t.mobileLabel}
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 font-bold select-none text-base">
-                  +৮৮
-                </span>
-                <input
-                  type="tel"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                  placeholder={t.mobilePlaceholder}
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-white/50 bg-white/60 focus:bg-white focus:border-farm-neonTeal focus:ring-0 focus:outline-none font-bold text-lg tracking-wider placeholder-slate-400 transition-all shadow-sm"
-                  required
-                  disabled={loading}
-                />
+            {/* Error alert */}
+            {error && (
+              <div className="flex items-start gap-3 p-3.5 text-sm bg-rose-500/10 border border-rose-500/25 rounded-xl animate-fade-in">
+                <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-rose-400" />
+                <span className="text-rose-300 font-semibold text-xs leading-relaxed">{error}</span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">{t.mobileHelp}</p>
-            </div>
+            )}
 
-            {/* Password Field */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-                  <Lock className="w-4.5 h-4.5 text-farm-warm" />
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Mobile Number */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  {t.mobileLabel}
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500 font-bold text-sm select-none pointer-events-none">
+                    +88
+                  </span>
+                  <input
+                    id="login-mobile"
+                    type="tel"
+                    inputMode="numeric"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                    placeholder={t.mobilePlaceholder}
+                    className="w-full pl-14 pr-4 py-3.5 rounded-xl bg-slate-800/80 border border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none text-slate-100 text-base font-semibold tracking-wider placeholder-slate-600 transition-all"
+                    autoComplete="tel"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
                   {t.passwordLabel}
                 </label>
+                <div className="relative">
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t.passwordPlaceholder}
+                    className="w-full px-4 pr-12 py-3.5 rounded-xl bg-slate-800/80 border border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 outline-none text-slate-100 text-base font-medium placeholder-slate-600 transition-all"
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-500 hover:text-slate-300 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 mt-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm rounded-xl active:scale-[0.98] transition-all duration-200 flex justify-center items-center gap-2 shadow-lg shadow-emerald-900/30 disabled:opacity-60 cursor-pointer"
+              >
+                {loading ? (
+                  <span className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn className="w-4.5 h-4.5" />
+                    <span>{t.loginBtn}</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Demo Logins & Instant Guest Access */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-2.5">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                <span>⚡ {language === 'bn' ? 'দ্রুত প্রবেশ (ডেমো)' : 'Quick Demo Access:'}</span>
+                <span className="text-[10px] text-slate-500 font-mono">pass: password123</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsForgotOpen(true)}
-                  className="text-xs font-bold text-farm-poultry hover:text-farm-warm transition-colors flex items-center gap-1"
+                  onClick={() => handleQuickLogin('01712345678', 'password123')}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-500/50 text-[11px] font-bold text-emerald-300 transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Login as Mohammad Rahman (01712345678 / password123)"
                 >
-                  <HelpCircle className="w-3.5 h-3.5" />
-                  {t.forgotPassLink}
+                  <span>{t.demoFarmerBtn}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('01800000000', 'password123')}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-teal-500/50 text-[11px] font-bold text-teal-300 transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  title="Login as Staff Officer (01800000000 / password123)"
+                >
+                  <span>{t.demoStaffBtn}</span>
                 </button>
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
-                className="w-full px-4 py-3.5 rounded-2xl border-2 border-white/50 bg-white/60 focus:bg-white focus:border-farm-neonTeal focus:ring-0 focus:outline-none font-medium text-lg tracking-widest placeholder-slate-400 transition-all shadow-sm"
-                required
-                disabled={loading}
-              />
+
+              {onSkip && (
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{t.demoAccess}</span>
+                </button>
+              )}
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-farm-neonTeal to-farm-deepBlue hover:scale-[1.02] hover:shadow-xl hover:shadow-farm-neonTeal/40 text-white font-extrabold text-lg rounded-2xl active:scale-95 transition-all duration-300 flex justify-center items-center gap-2"
-            >
-              {loading ? (
-                <span className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></span>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  <span>{t.loginBtn}</span>
-                </>
-              )}
-            </button>
-          </form>
+          </div>
 
-          {/* Registration Navigation */}
-          <div className="pt-4 border-t border-slate-100 text-center">
-            <p className="text-slate-500 font-semibold text-sm">
-              {t.noAccountText}
-            </p>
+          {/* Register navigation */}
+          <div className="text-center space-y-3 pt-2">
+            <p className="text-sm text-slate-500 font-medium">{t.noAccountText}</p>
             <button
               onClick={onNavigateToRegister}
-              className="mt-2.5 inline-flex items-center gap-2 px-6 py-2.5 border-2 border-farm-warm/40 hover:border-farm-warm text-farm-darkWarm font-bold text-sm rounded-xl hover:bg-amber-50/50 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-slate-700 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 font-bold text-xs transition-all hover:bg-emerald-500/5 cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>{t.registerBtn}</span>
@@ -239,12 +304,6 @@ const LoginPage = ({ onNavigateToRegister }) => {
 
         </div>
       </div>
-
-      {/* Forgot Password Flow Modal */}
-      <ForgotPasswordModal 
-        isOpen={isForgotOpen} 
-        onClose={() => setIsForgotOpen(false)} 
-      />
     </div>
   );
 };

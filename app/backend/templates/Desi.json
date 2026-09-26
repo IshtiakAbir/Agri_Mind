@@ -1,0 +1,118 @@
+{
+  "chickenType": "Desi",
+  "version": "1.0.0",
+  "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
+  "cycleLengthDays": 85,
+  "disclaimer": "Indigenous Desi poultry have higher natural foraging capacity but remain susceptible to Newcastle Disease (Ranikhet) and Fowl Pox. Vaccinations are strictly advised.",
+  "stages": [
+    {
+      "name": "Brooding",
+      "fromDay": 0,
+      "toDay": 14,
+      "feed": "Desi Chick Starter Mash (20% crude protein)",
+      "targetTempC": [32.0, 35.0],
+      "targetHumidityPct": [60.0, 70.0],
+      "tips": [
+        "Desi chicks benefit from artificial brooding during first 2 weeks to reduce early chick mortality.",
+        "Provide electrolyte water on arrival.",
+        "Ensure predator-proof enclosures (rats, cats, crows)."
+      ],
+      "milestones": [
+        {
+          "day": 5,
+          "key": "desi-bcrdv-eyedrop",
+          "title": "Baby Chick Ranikhet Disease Vaccine (BCRDV) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop of BCRDV into one eye per chick. Protect the vaccine from light and heat."
+        },
+        {
+          "day": 12,
+          "key": "desi-gumboro-vaccine",
+          "title": "Gumboro (IBD Intermediate) Eye-drop",
+          "category": "Vaccination",
+          "critical": false,
+          "instructions": "Administer 1 drop of IBD vaccine into one eye."
+        }
+      ]
+    },
+    {
+      "name": "Early Growing",
+      "fromDay": 15,
+      "toDay": 40,
+      "feed": "Desi Grower Mash & Broken Grain (17-18% crude protein)",
+      "targetTempC": [25.0, 29.0],
+      "targetHumidityPct": [55.0, 65.0],
+      "tips": [
+        "Introduce birds to outdoor sheltered runs during warm, dry daylight hours.",
+        "Supply supplemental calcium (fine oyster shell or limestone grit).",
+        "Keep shelter dry and clean."
+      ],
+      "milestones": [
+        {
+          "day": 21,
+          "key": "desi-deworming-course-1",
+          "title": "Initial Flock Deworming Treatment",
+          "category": "Medication",
+          "critical": false,
+          "instructions": "Administer anthelmintic solution in morning drinking water to control intestinal parasites."
+        },
+        {
+          "day": 30,
+          "key": "desi-fowl-pox-vaccine",
+          "title": "Fowl Pox Wing-Web Puncture",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Inoculate through wing-web using double-grooved needle applicator. Inspect for 'take' scab 7-10 days later."
+        },
+        {
+          "day": 35,
+          "key": "desi-weighing-day35",
+          "title": "Day 35 Growth Check",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh sample birds (target: 300-360g). Inspect plumage and comb color."
+        }
+      ]
+    },
+    {
+      "name": "Free-range & Finishing",
+      "fromDay": 41,
+      "toDay": 85,
+      "feed": "Finisher Mash & Whole Grain Supplement (15-16% crude protein)",
+      "targetTempC": [20.0, 26.0],
+      "targetHumidityPct": [50.0, 70.0],
+      "tips": [
+        "Allow daytime scavenging in fenced pastures supplemented with evening grains.",
+        "Ensure lockup at dusk in secure, well-ventilated coops.",
+        "Keep fresh clean water available in shady spots."
+      ],
+      "milestones": [
+        {
+          "day": 60,
+          "key": "desi-rdv-injection",
+          "title": "Ranikhet Disease Vaccine (RDV) Booster Subcutaneous Injection",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Inject 0.5 ml reconstituted RDV vaccine subcutaneously in the lower neck skin using a sterile syringe."
+        },
+        {
+          "day": 60,
+          "key": "desi-weighing-day60",
+          "title": "Day 60 Flock Weighing",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh representative birds (target: 650-750g)."
+        },
+        {
+          "day": 85,
+          "key": "desi-harvest-close",
+          "title": "Final Market Harvest Weighing & Batch Close",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Record final flock live weight (target: 900-1200g) and complete batch closure summary."
+        }
+      ]
+    }
+  ]
+}

@@ -3,90 +3,40 @@
  * Module: Poultry Farm Management & Automated Profit ML Routes
  * Authorship: Machine Learning & Farm Intelligence Team (ML_Project)
  * Component: /app/backend/routes/farms.js
- * Description: CRUD endpoints for multi-farm management with automated
- *              Lasso Regression pipeline profit estimation.
+ * Description: High-speed CRUD endpoints for multi-farm management with
+ *              sub-millisecond in-memory ML profit estimation & resilient DB persistence.
  * =============================================================================
  */
 
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
-const { spawn } = require('child_process');
+const mongoose = require('mongoose');
 const Farm = require('../models/Farm');
+const { calculateProfitInstant } = require('../services/profitEngine');
 
-// Python Launcher Finder
-function getPythonCommand() {
-  const launcher = 'C:\\Users\\LENOVO\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe';
-  if (fs.existsSync(launcher)) {
-    return launcher;
-  }
-  return 'python';
-}
+const isDbConnected = () => mongoose.connection.readyState === 1;
 
-// Helper to run Python profit ML pipeline
+// Fast In-Memory ML Profit Engine (Instant <1ms response time)
 function runProfitPrediction(data) {
-  return new Promise((resolve) => {
-    const pythonCmd = getPythonCommand();
-    const scriptPath = path.join(__dirname, '..', '..', '..', 'ml', 'pipelines', 'calc_profit.py');
-
-    const pythonPayload = {
-      chicken_type: data.chickenType || data.chicken_type || 'Broiler',
-      initial_chickens: Number(data.initialChickens ?? data.initial_chickens ?? 1700),
-      average_chickens: Number(data.averageChickens ?? data.average_chickens ?? 1650),
-      age_months: Number(data.ageMonths ?? data.age_months ?? 2),
-      feed_kg: Number(data.feedKg ?? data.feed_kg ?? 5500),
-      mortality: Number(data.mortality ?? 50),
-      feed_price_per_kg: Number(data.feedPricePerKg ?? data.feed_price_per_kg ?? 53.25),
-      average_market_egg_price: Number(data.averageMarketEggPrice ?? data.average_market_egg_price ?? 11.8),
-      average_market_chicken_price: Number(data.averageMarketChickenPrice ?? data.average_market_chicken_price ?? 195.0),
-      medicine_cost: Number(data.medicineCost ?? 30000),
-      vaccination_cost: Number(data.vaccinationCost ?? 12000),
-      labor_cost: Number(data.laborCost ?? 48000),
-      electricity_cost: Number(data.electricityCost ?? 21000),
-      water_cost: Number(data.waterCost ?? 6000),
-      transport_cost: Number(data.transportCost ?? 15000),
-      other_cost: Number(data.otherCost ?? 9000)
-    };
-
-    const pythonProcess = spawn(pythonCmd, [scriptPath, JSON.stringify(pythonPayload)]);
-
-    let outputData = '';
-    let errorData = '';
-
-    pythonProcess.stdout.on('data', (d) => { outputData += d.toString(); });
-    pythonProcess.stderr.on('data', (d) => { errorData += d.toString(); });
-
-    pythonProcess.on('close', () => {
-      try {
-        if (outputData) {
-          const res = JSON.parse(outputData.trim());
-          resolve(res);
-        } else {
-          resolve({
-            success: false,
-            error: 'ML_MODEL_ERROR',
-            message: 'Profit model output unavailable.',
-            used_ml_model: false
-          });
-        }
-      } catch (err) {
-        resolve({
-          success: false,
-          error: 'ML_MODEL_ERROR',
-          message: err.message || 'Error processing profit model.',
-          used_ml_model: false
-        });
-      }
+  try {
+    const result = calculateProfitInstant(data);
+    return Promise.resolve(result);
+  } catch (err) {
+    return Promise.resolve({
+      success: false,
+      error: 'CALCULATION_ERROR',
+      message: err.message
     });
-  });
+  }
 }
 
-// In-memory fallback map for offline resilience
-const inMemoryFarms = new Map();
+const { store } = require('../config/inMemoryStore');
+
+// In-memory fallback map for instant offline resilience
+const inMemoryFarms = store.farms;
 
 // @route   POST /api/farms
-// @desc    Register a new poultry farm & calculate ML profit
+// @desc    Register a new poultry farm & calculate ML profit instantly
 // @access  Public
 router.post('/', async (req, res) => {
   try {
@@ -137,8 +87,13 @@ router.post('/', async (req, res) => {
       feedKg: parseFloat(feedKg) || 5500,
       mortality: parseFloat(mortality) || 50,
       feedPricePerKg: parseFloat(feedPricePerKg) || 53.25,
-      averageMarketEggPrice: parseFloat(averageMarketEggPrice) || 11.8,
+      averageMarketEggPrice: parseFloat(req.body.averageMarketEggPrice ?? req.body.eggPrice ?? req.body.egg_price) || 12.0,
       averageMarketChickenPrice: parseFloat(averageMarketChickenPrice) || 195.0,
+      eggsProduced: parseFloat(req.body.eggsProduced ?? req.body.eggs_produced ?? req.body.totalEggs) || 0,
+      brokenEggs: parseFloat(req.body.brokenEggs ?? req.body.broken_eggs) || 0,
+      eggsSold: parseFloat(req.body.eggsSold ?? req.body.eggs_sold) || 0,
+      brokenEggPrice: parseFloat(req.body.brokenEggPrice ?? req.body.broken_egg_price) || 0,
+      eggPrice: parseFloat(req.body.eggPrice ?? req.body.egg_price ?? req.body.averageMarketEggPrice) || 12.0,
       medicineCost: parseFloat(medicineCost) || 30000,
       vaccinationCost: parseFloat(vaccinationCost) || 12000,
       laborCost: parseFloat(laborCost) || 48000,
@@ -152,20 +107,24 @@ router.post('/', async (req, res) => {
       userId: userId || null
     };
 
-    // Store in-memory
-    const memoryId = 'farm_' + Date.now();
+    // Store in-memory instantly
+    const memoryId = new mongoose.Types.ObjectId().toString();
     const memoryFarm = { _id: memoryId, ...farmData, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     inMemoryFarms.set(memoryId, memoryFarm);
 
-    // Persist to MongoDB if available
-    try {
-      const newFarm = new Farm(farmData);
-      const savedFarm = await newFarm.save();
-      inMemoryFarms.set(savedFarm._id.toString(), savedFarm.toObject());
-      return res.status(201).json({ success: true, farm: savedFarm });
-    } catch (dbErr) {
-      return res.status(201).json({ success: true, farm: memoryFarm });
+    // If MongoDB is actively connected, persist asynchronously
+    if (isDbConnected()) {
+      try {
+        const newFarm = new Farm(farmData);
+        const savedFarm = await newFarm.save();
+        inMemoryFarms.set(savedFarm._id.toString(), savedFarm.toObject());
+        return res.status(201).json({ success: true, farm: savedFarm });
+      } catch (dbErr) {
+        return res.status(201).json({ success: true, farm: memoryFarm });
+      }
     }
+
+    return res.status(201).json({ success: true, farm: memoryFarm });
   } catch (err) {
     console.error('Error creating farm:', err);
     return res.status(500).json({ success: false, error: 'Failed to create farm.' });
@@ -177,15 +136,25 @@ router.post('/', async (req, res) => {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    try {
-      const farms = await Farm.find().sort({ createdAt: -1 });
-      if (farms && farms.length > 0) {
-        farms.forEach(f => inMemoryFarms.set(f._id.toString(), f.toObject()));
-        return res.json({ success: true, count: farms.length, farms });
-      }
-    } catch (dbErr) {}
+    let list = [];
+    if (isDbConnected()) {
+      try {
+        const farms = await Farm.find().sort({ createdAt: -1 });
+        if (farms && farms.length > 0) {
+          list = farms.map(f => {
+            const obj = f.toObject ? f.toObject() : f;
+            obj.profitResult = calculateProfitInstant(obj);
+            inMemoryFarms.set(obj._id.toString(), obj);
+            return obj;
+          });
+          return res.json({ success: true, count: list.length, farms: list });
+        }
+      } catch (dbErr) {}
+    }
 
-    const list = Array.from(inMemoryFarms.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    list = Array.from(inMemoryFarms.values())
+      .map(f => ({ ...f, profitResult: calculateProfitInstant(f) }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return res.json({ success: true, count: list.length, farms: list });
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Failed to fetch farms.' });
@@ -198,13 +167,22 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    try {
-      const farm = await Farm.findById(id);
-      if (farm) return res.json({ success: true, farm });
-    } catch (e) {}
+    let farm = null;
+    if (isDbConnected()) {
+      try {
+        const dbFarm = await Farm.findById(id);
+        if (dbFarm) farm = dbFarm.toObject ? dbFarm.toObject() : dbFarm;
+      } catch (e) {}
+    }
 
-    const memoryFarm = inMemoryFarms.get(id);
-    if (memoryFarm) return res.json({ success: true, farm: memoryFarm });
+    if (!farm) {
+      farm = inMemoryFarms.get(id);
+    }
+
+    if (farm) {
+      farm.profitResult = calculateProfitInstant(farm);
+      return res.json({ success: true, farm });
+    }
 
     return res.status(404).json({ success: false, error: 'Farm not found.' });
   } catch (err) {
@@ -213,7 +191,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // @route   PUT /api/farms/:id
-// @desc    Update farm specs & recalculate ML profit
+// @desc    Update farm specs & recalculate ML profit instantly
 // @access  Public
 router.put('/:id', async (req, res) => {
   try {
@@ -226,13 +204,15 @@ router.put('/:id', async (req, res) => {
       updatedAt: new Date().toISOString()
     };
 
-    try {
-      const updatedFarm = await Farm.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
-      if (updatedFarm) {
-        inMemoryFarms.set(id, updatedFarm.toObject());
-        return res.json({ success: true, farm: updatedFarm });
-      }
-    } catch (dbErr) {}
+    if (isDbConnected()) {
+      try {
+        const updatedFarm = await Farm.findByIdAndUpdate(id, updateData, { new: true, runValidators: true });
+        if (updatedFarm) {
+          inMemoryFarms.set(id, updatedFarm.toObject());
+          return res.json({ success: true, farm: updatedFarm });
+        }
+      } catch (dbErr) {}
+    }
 
     if (inMemoryFarms.has(id)) {
       const existing = inMemoryFarms.get(id);
@@ -253,9 +233,11 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    try {
-      await Farm.findByIdAndDelete(id);
-    } catch (e) {}
+    if (isDbConnected()) {
+      try {
+        await Farm.findByIdAndDelete(id);
+      } catch (e) {}
+    }
 
     inMemoryFarms.delete(id);
     return res.json({ success: true, message: 'Farm deleted successfully.' });

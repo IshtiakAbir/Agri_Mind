@@ -85,7 +85,18 @@ export default function MyFarm({
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'eggsProduced' || name === 'brokenEggs') {
+        const prod = Number(name === 'eggsProduced' ? value : updated.eggsProduced) || 0;
+        const brk = Number(name === 'brokenEggs' ? value : updated.brokenEggs) || 0;
+        updated.eggsSold = Math.max(0, prod - brk);
+      }
+      if (name === 'averageMarketEggPrice') {
+        updated.eggPrice = value;
+      }
+      return updated;
+    });
   };
 
   const handleUpdate = async (e) => {
@@ -159,6 +170,9 @@ export default function MyFarm({
       transportCost: farm.transportCost ?? 15000,
       otherCost: farm.otherCost ?? 9000,
       eggsProduced: farm.eggsProduced ?? 0,
+      brokenEggs: farm.brokenEggs ?? 0,
+      eggsSold: farm.eggsSold ?? (farm.eggsProduced ? Math.max(0, farm.eggsProduced - (farm.brokenEggs || 0)) : 0),
+      brokenEggPrice: farm.brokenEggPrice ?? 0,
       chickensSold: farm.chickensSold ?? 1550,
       averageWeightKg: farm.averageWeightKg ?? 2.2,
       chickenPricePerKg: farm.chickenPricePerKg ?? 195.0,
@@ -410,8 +424,43 @@ export default function MyFarm({
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 mt-1" />
             </div>
             <div>
+              <label className="font-semibold text-slate-300">Age (Months)</label>
+              <input type="number" step="0.1" name="ageMonths" value={formData.ageMonths} onChange={handleChange}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
               <label className="font-semibold text-slate-300">Feed Consumed (kg)</label>
               <input type="number" name="feedKg" value={formData.feedKg} onChange={handleChange}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-300">Mortality Count</label>
+              <input type="number" name="mortality" value={formData.mortality} onChange={handleChange}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-amber-300">Total Eggs Produced 🥚</label>
+              <input type="number" name="eggsProduced" value={formData.eggsProduced} onChange={handleChange} placeholder="0 = Auto calculate"
+                className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-rose-300">Broken / Reject Eggs ⚠️</label>
+              <input type="number" name="brokenEggs" value={formData.brokenEggs} onChange={handleChange} placeholder="e.g. 2500"
+                className="w-full bg-slate-900 border border-rose-500/50 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-emerald-300">Net Eggs Sold 💰</label>
+              <input type="number" name="eggsSold" value={formData.eggsSold} onChange={handleChange} placeholder="Marketable sold"
+                className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-amber-300">Egg Price (BDT/pc) 🥚</label>
+              <input type="number" step="0.1" name="averageMarketEggPrice" value={formData.averageMarketEggPrice} onChange={handleChange}
+                className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-slate-100 mt-1" />
+            </div>
+            <div>
+              <label className="font-semibold text-slate-300">Feed Price (BDT/kg)</label>
+              <input type="number" step="0.1" name="feedPricePerKg" value={formData.feedPricePerKg} onChange={handleChange}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 mt-1" />
             </div>
           </div>
@@ -490,23 +539,91 @@ export default function MyFarm({
 
           {/* Financial Breakdown Grid */}
           {profit.breakdown && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-semibold">Total Revenue</span>
-                <span className="text-base font-bold text-emerald-400">৳ {profit.breakdown.total_revenue?.toLocaleString()}</span>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block font-semibold">Total Revenue</span>
+                  <span className="text-base font-bold text-emerald-400">৳ {profit.breakdown.total_revenue?.toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block font-semibold">Total Expenses</span>
+                  <span className="text-base font-bold text-rose-400">৳ {profit.breakdown.total_cost?.toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block font-semibold">Feed Cost</span>
+                  <span className="text-base font-bold text-slate-200">৳ {profit.breakdown.feed_cost?.toLocaleString()}</span>
+                </div>
+                <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-400 block font-semibold">Operating Overhead</span>
+                  <span className="text-base font-bold text-slate-200">৳ {profit.breakdown.non_feed_cost?.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-semibold">Total Expenses</span>
-                <span className="text-base font-bold text-rose-400">৳ {profit.breakdown.total_cost?.toLocaleString()}</span>
+
+              {/* Revenue Streams (Meat vs Eggs) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] uppercase font-bold text-amber-300 flex items-center gap-1.5">
+                      <span>🥚</span> Egg Revenue
+                    </span>
+                    <p className="text-xs text-amber-200/80">
+                      {profit.breakdown.eggs_sold > 0 || profit.breakdown.eggs_produced > 0
+                        ? `${(profit.breakdown.eggs_sold || profit.breakdown.eggs_produced)?.toLocaleString()} eggs sold @ ৳${profit.breakdown.egg_price}/pc`
+                        : 'No active egg yield'}
+                    </p>
+                  </div>
+                  <span className="text-lg font-extrabold text-amber-300">
+                    ৳ {profit.breakdown.egg_revenue?.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] uppercase font-bold text-emerald-300 flex items-center gap-1.5">
+                      <Bird className="w-3.5 h-3.5 text-emerald-400" /> Meat Sales Revenue
+                    </span>
+                    <p className="text-xs text-emerald-200/80">
+                      Harvest sales & spent bird salvage
+                    </p>
+                  </div>
+                  <span className="text-lg font-extrabold text-emerald-300">
+                    ৳ {profit.breakdown.chicken_revenue?.toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-semibold">Feed Cost</span>
-                <span className="text-base font-bold text-slate-200">৳ {profit.breakdown.feed_cost?.toLocaleString()}</span>
-              </div>
-              <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800">
-                <span className="text-[11px] text-slate-400 block font-semibold">Operating Overhead</span>
-                <span className="text-base font-bold text-slate-200">৳ {profit.breakdown.non_feed_cost?.toLocaleString()}</span>
-              </div>
+
+              {/* Egg Yield & Breakage Stats */}
+              {(profit.breakdown.eggs_produced > 0 || profit.breakdown.egg_revenue > 0) && (
+                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs text-slate-300">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <span className="flex items-center gap-2 font-bold text-amber-300">
+                      <span className="p-1 rounded-md bg-amber-500/20 text-amber-300">🥚</span>
+                      Egg Production & Commercial Sales Analytics
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      Lay Rate: {profit.breakdown.lay_rate_percent}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/60">
+                      <span className="text-[10px] text-slate-400 block font-sans">Total Collected</span>
+                      <strong className="text-amber-200 text-sm">{profit.breakdown.eggs_produced?.toLocaleString()}</strong>
+                    </div>
+                    <div className="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/60">
+                      <span className="text-[10px] text-emerald-400 block font-sans">Net Eggs Sold</span>
+                      <strong className="text-emerald-300 text-sm">{profit.breakdown.eggs_sold?.toLocaleString()}</strong>
+                    </div>
+                    <div className="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/60">
+                      <span className="text-[10px] text-rose-400 block font-sans">Broken / Reject</span>
+                      <strong className="text-rose-300 text-sm">{profit.breakdown.broken_eggs?.toLocaleString()} <span className="text-[10px] font-normal font-sans">({profit.breakdown.breakage_rate_percent}%)</span></strong>
+                    </div>
+                    <div className="bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/60">
+                      <span className="text-[10px] text-rose-400 block font-sans">Breakage Loss</span>
+                      <strong className="text-rose-400 text-sm">-৳{profit.breakdown.broken_egg_loss?.toLocaleString()}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

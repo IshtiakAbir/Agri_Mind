@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PoultryLifecycleTemplate",
+  "description": "JSON Schema specification for poultry breed lifecycle management templates",
+  "type": "object",
+  "required": [
+    "chickenType",
+    "version",
+    "cycleLengthDays",
+    "stages"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "chickenType": {
+      "type": "string",
+      "enum": ["Broiler", "Sonali", "Desi", "Cock", "Layer"],
+      "description": "Poultry breed or production type"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this template, e.g. 1.0.0"
+    },
+    "reviewedBy": {
+      "type": ["string", "null"],
+      "description": "Name or credentials of the reviewing poultry veterinarian / specialist"
+    },
+    "cycleLengthDays": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Standard target production cycle length in days"
+    },
+    "disclaimer": {
+      "type": "string",
+      "description": "Veterinary advisory disclaimer"
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Chronological flock rearing stages",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "fromDay",
+          "toDay",
+          "feed",
+          "targetTempC",
+          "targetHumidityPct",
+          "tips"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stage name (e.g. Brooding, Starter, Grower, Finisher, Laying)"
+          },
+          "fromDay": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Flock age in days at start of stage"
+          },
+          "toDay": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Flock age in days at end of stage"
+          },
+          "feed": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Recommended feed formulation"
+          },
+          "targetTempC": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[minTemp, maxTemp] in Celsius"
+          },
+          "targetHumidityPct": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[minHumidity, maxHumidity] in %"
+          },
+          "tips": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Flock management guidance and biosecurity tips"
+          },
+          "milestones": {
+            "type": "array",
+            "description": "Scheduled tasks and health milestones for this stage",
+            "items": {
+              "type": "object",
+              "required": [
+                "day",
+                "key",
+                "title",
+                "category",
+                "instructions"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "day": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Bird age in days when task is due"
+                },
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_-]+$",
+                  "description": "Unique stable identifier for this task in the template"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Actionable task title"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": ["Vaccination", "Feed Transition", "Weighing", "Medication"],
+                  "description": "Task category"
+                },
+                "critical": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "True if missing this task impacts biosecurity or flock survival"
+                },
+                "instructions": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Step-by-step instructions for the farmer"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

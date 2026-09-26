@@ -1,5 +1,18 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileCheck, AlertCircle, RefreshCw, Activity, CheckCircle2, ShieldAlert } from 'lucide-react';
+import {
+  UploadCloud,
+  FileCheck,
+  AlertCircle,
+  RefreshCw,
+  Activity,
+  CheckCircle2,
+  ShieldAlert,
+  ShoppingBag,
+  Phone,
+  Info,
+  AlertTriangle,
+  Stethoscope
+} from 'lucide-react';
 
 export default function DiseaseDetection({ onPredictionSaved, farmId }) {
   const [file, setFile] = useState(null);
@@ -309,6 +322,115 @@ export default function DiseaseDetection({ onPredictionSaved, farmId }) {
                         <p className="text-slate-200 leading-relaxed">{result.advisory.recommended_treatment}</p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Veterinary / Hatchery Referral Callout for Non-Treatable Pathologies */}
+                {result.vetReferralRequired && (
+                  <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2 animate-fadeIn">
+                    <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                      <Stethoscope className="w-4 h-4 shrink-0" />
+                      <span>Consult Hatchery Technician / Veterinary Officer</span>
+                    </div>
+                    <p className="text-xs text-rose-200/90 leading-relaxed">
+                      This viral or critical condition cannot be resolved with over-the-counter pharmaceuticals. Immediate biosecurity isolation and professional veterinary intervention are strictly required.
+                    </p>
+                    {result.supportiveCare && result.supportiveCare.length > 0 && (
+                      <div className="pt-1 space-y-1">
+                        <span className="text-[11px] font-semibold text-rose-300 block">Immediate Supportive Care:</span>
+                        <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
+                          {result.supportiveCare.map((sc, i) => (
+                            <li key={i}>{sc}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Pharmacological Active Ingredients Guidance */}
+                {result.treatments && result.treatments.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-slate-800 text-xs">
+                    <span className="font-bold text-slate-200 block text-xs uppercase tracking-wider text-teal-400">
+                      Veterinary Active Ingredients Guidance
+                    </span>
+                    {result.treatments.map((t, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-1.5">
+                        {t.activeIngredients && t.activeIngredients.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[11px] text-slate-400">Target Active Ingredients:</span>
+                            {t.activeIngredients.map((ing) => (
+                              <span key={ing} className="px-2 py-0.5 rounded-md bg-teal-500/20 text-teal-300 font-mono text-[10px] font-semibold">
+                                {ing}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {t.supportiveCare && (
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            <strong className="text-slate-400">Supportive Care: </strong>{t.supportiveCare}
+                          </p>
+                        )}
+                        {t.withdrawalNotes && (
+                          <p className="text-[10px] text-amber-400/90 font-medium">
+                            ⚠️ {t.withdrawalNotes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Compatible Marketplace Products */}
+                {result.products && result.products.length > 0 && (
+                  <div className="space-y-3 pt-3 border-t border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>AgriShop Recommended Supplies ({result.products.length})</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">Verified Vendors</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {result.products.map((prod) => (
+                        <div
+                          key={prod._id}
+                          className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-emerald-500/40 transition-colors flex flex-col justify-between space-y-2 text-xs"
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-1">
+                              <h5 className="font-bold text-slate-200 line-clamp-1">{prod.name}</h5>
+                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                                ৳{prod.price}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{prod.unit} • Stock: {prod.stock}</p>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-400 truncate max-w-[120px]">{prod.sellerName}</span>
+                            {prod.sellerPhone && (
+                              <a
+                                href={`tel:${prod.sellerPhone}`}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold transition-colors"
+                              >
+                                <Phone className="w-3 h-3" />
+                                Contact
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Veterinary Guidance Disclaimer */}
+                {result.disclaimer && (
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex items-start gap-2 text-[11px] text-slate-400">
+                    <Info className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">{result.disclaimer}</p>
                   </div>
                 )}
               </div>

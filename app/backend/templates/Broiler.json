@@ -1,0 +1,161 @@
+{
+  "chickenType": "Broiler",
+  "version": "1.0.0",
+  "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
+  "cycleLengthDays": 35,
+  "disclaimer": "Vaccine schedules should follow regional disease prevalence and cold-chain integrity guidelines. Consult your local veterinary officer.",
+  "stages": [
+    {
+      "name": "Brooding",
+      "fromDay": 0,
+      "toDay": 7,
+      "feed": "Pre-starter Crumble (22-23% crude protein)",
+      "targetTempC": [32.0, 35.0],
+      "targetHumidityPct": [60.0, 70.0],
+      "tips": [
+        "Pre-warm the brooder room 24 hours prior to chick placement.",
+        "Provide glucose/electrolytes in drinking water for the first 4-6 hours to combat transport stress.",
+        "Check chick crop fill at 8 and 24 hours after arrival; 95%+ of chicks should have soft, full crops.",
+        "Maintain 23 hours of bright light (30-40 lux) for the first 3 days to stimulate feeding."
+      ],
+      "milestones": [
+        {
+          "day": 1,
+          "key": "broiler-hatchery-check",
+          "title": "Chicks Arrival & Hatchery Health Audit",
+          "category": "Medication",
+          "critical": true,
+          "instructions": "Inspect chick uniformity, unhealed navels, and red hocks. Record initial arrival count and weigh 5% of chicks."
+        },
+        {
+          "day": 4,
+          "key": "broiler-nd-ib-1",
+          "title": "Newcastle (ND Clone 30 / LaSota) + IB Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop of combined ND+IB vaccine into one eye per chick. Ensure chick blinks and absorbs the drop before release."
+        },
+        {
+          "day": 7,
+          "key": "broiler-weighing-day7",
+          "title": "Day 7 Flock Weight Benchmark Check",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Weigh 50 randomly sampled chicks across shed quadrants. Target average weight is 180-200g (4-4.5x initial chick weight)."
+        }
+      ]
+    },
+    {
+      "name": "Starter",
+      "fromDay": 8,
+      "toDay": 14,
+      "feed": "Starter Crumble (21-22% crude protein)",
+      "targetTempC": [29.0, 32.0],
+      "targetHumidityPct": [55.0, 65.0],
+      "tips": [
+        "Gradually decrease brooder temperature by 0.5°C per day.",
+        "Expand brooding rings to give chicks 50% more floor space.",
+        "Ensure drinker height is level with the chicks' backs as they grow.",
+        "Inspect litter daily under drinkers for wet caking."
+      ],
+      "milestones": [
+        {
+          "day": 10,
+          "key": "broiler-gumboro-ibd-1",
+          "title": "Infectious Bursal Disease (Gumboro / IBD Intermediate) Eye-drop",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer 1 drop in eye or via skimmed-milk stabilized drinking water. Protect vaccines from chlorine and sunlight."
+        },
+        {
+          "day": 14,
+          "key": "broiler-weighing-day14",
+          "title": "Day 14 Weight & Feed Transition Audit",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh representative sample of birds (target: 450-500g). Prepare gradual transition to grower feed over 3 days."
+        }
+      ]
+    },
+    {
+      "name": "Grower",
+      "fromDay": 15,
+      "toDay": 24,
+      "feed": "Grower Pellets (19-20% crude protein)",
+      "targetTempC": [25.0, 28.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Transition feed ratio: 75% starter/25% grower on day 15, 50/50 on day 16, 25/75 on day 17, 100% grower day 18.",
+        "Monitor for bloody droppings or ruffled feathers (early coccidiosis indicators).",
+        "Increase cross-ventilation to remove ammonia and heat buildup.",
+        "Implement 4 hours of darkness per night to promote bone development and lower sudden death risk."
+      ],
+      "milestones": [
+        {
+          "day": 17,
+          "key": "broiler-gumboro-booster",
+          "title": "Gumboro (IBD Intermediate Plus) Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Withdraw water for 1.5-2 hours before administration. Add skimmed milk powder (2g/L) to neutralize water traces, then administer vaccine water within 2 hours."
+        },
+        {
+          "day": 21,
+          "key": "broiler-nd-lasota-booster",
+          "title": "Newcastle Disease (ND LaSota) Drinking Water Booster",
+          "category": "Vaccination",
+          "critical": true,
+          "instructions": "Administer live ND LaSota vaccine in cool, non-chlorinated drinking water. Ensure all birds drink within 2 hours."
+        },
+        {
+          "day": 21,
+          "key": "broiler-weighing-day21",
+          "title": "Day 21 Flock Weighing & FCR Evaluation",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Sample 50-100 birds. Target weight: 950-1050g. Calculate Feed Conversion Ratio (FCR = cumulative feed / total biomass)."
+        }
+      ]
+    },
+    {
+      "name": "Finisher",
+      "fromDay": 25,
+      "toDay": 35,
+      "feed": "Finisher Pellets (18-19% crude protein)",
+      "targetTempC": [21.0, 25.0],
+      "targetHumidityPct": [50.0, 65.0],
+      "tips": [
+        "Check withdrawal periods on any coccidiostats or therapeutics prior to slaughter.",
+        "Run ventilation fans and tunnel cooling during hot afternoon periods.",
+        "Never disturb heavy birds during peak midday heat (12:00 - 15:00) to avoid heart failure.",
+        "Clean water lines daily to avoid bacterial slime."
+      ],
+      "milestones": [
+        {
+          "day": 25,
+          "key": "broiler-finisher-transition",
+          "title": "Transition to Finisher Feed & Medicine Withdrawal Audit",
+          "category": "Feed Transition",
+          "critical": true,
+          "instructions": "Switch to finisher feed without prophylactic antibiotics to observe strict withdrawal rules before marketing."
+        },
+        {
+          "day": 28,
+          "key": "broiler-weighing-day28",
+          "title": "Day 28 Weight & Pre-Harvest Review",
+          "category": "Weighing",
+          "critical": false,
+          "instructions": "Weigh sample birds (target: 1.5-1.7 kg). Project harvest dates and contact poultry traders."
+        },
+        {
+          "day": 35,
+          "key": "broiler-harvest-weighing",
+          "title": "Final Market Harvest Weighing & Batch Close",
+          "category": "Weighing",
+          "critical": true,
+          "instructions": "Perform pre-slaughter feed withdrawal 6-8 hours before harvest while keeping drinking water available. Record final flock weight and sold count."
+        }
+      ]
+    }
+  ]
+}

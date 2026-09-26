@@ -180,6 +180,47 @@ const INITIAL_PRODUCTS = [
 
 let inMemoryProducts = [...INITIAL_PRODUCTS];
 
+/**
+ * Internal helper to find matching marketplace products by active ingredients or tags
+ * Sorted with in-stock first, capped at limit (default 6).
+ */
+function findProductsByIngredients(activeIngredients = [], limit = 6) {
+  if (!activeIngredients || !Array.isArray(activeIngredients) || activeIngredients.length === 0) {
+    return [];
+  }
+
+  const terms = activeIngredients.map(ing => String(ing).toLowerCase().trim());
+  const matched = inMemoryProducts.filter(p => {
+    const text = `${p.name} ${p.description || ''} ${p.category || ''}`.toLowerCase();
+    return terms.some(term => text.includes(term));
+  });
+
+  // Sort in-stock first, then rating
+  matched.sort((a, b) => {
+    const aStock = a.stock > 0 ? 1 : 0;
+    const bStock = b.stock > 0 ? 1 : 0;
+    if (bStock !== aStock) return bStock - aStock;
+    return (b.rating || 0) - (a.rating || 0);
+  });
+
+  return matched.slice(0, limit).map(p => ({
+    _id: p._id,
+    name: p.name,
+    price: p.price,
+    unit: p.unit,
+    sellerName: p.sellerName,
+    sellerPhone: p.sellerPhone,
+    badge: p.badge,
+    stock: p.stock,
+    image: p.image,
+    category: p.category
+  }));
+}
+
+router.findProductsByIngredients = findProductsByIngredients;
+router.inMemoryProducts = inMemoryProducts;
+
+
 // @route   GET /api/products
 // @desc    Get all marketplace products with optional category filter
 // @access  Public

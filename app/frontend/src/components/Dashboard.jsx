@@ -1,50 +1,32 @@
+/**
+ * =============================================================================
+ * Module: AgriMind Landing Dashboard (Hero + Marketplace + Farm Entry)
+ * Component: /app/frontend/src/components/Dashboard.jsx
+ * Description: Landing page with hero section, marketplace product grid,
+ *              farm entry point, how-it-works section, and footer links.
+ *              No farm-creation form embedded — user goes to Smart Poultry.
+ * =============================================================================
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles, Warehouse, ShoppingBag, Users, Phone, MapPin, Bird,
-  PieChart, RefreshCw, AlertCircle, ArrowRight, ShieldCheck,
-  Activity, Star, CheckCircle2, DollarSign, ChevronRight
+  Sparkles, Warehouse, ShoppingBag, Bird, ArrowRight, Activity,
+  CheckCircle2, DollarSign, ChevronRight, RefreshCw, Shield,
+  BarChart3, Stethoscope, ClipboardCheck, TrendingUp, Zap,
+  Star, Tag, Phone
 } from 'lucide-react';
 
-const CHICKEN_TYPES = ['Sonali', 'Broiler', 'Desi', 'Cock', 'Layer'];
-
-const DEFAULT_FORM = {
-  farmName: '',
-  ownerName: '',
-  phoneNumber: '',
-  country: 'Bangladesh',
-  city: 'Dhaka',
-  chickenType: 'Broiler',
-  initialChickens: 1700,
-  averageChickens: 1650,
-  ageMonths: 2,
-  feedKg: 5500,
-  mortality: 50,
-  feedPricePerKg: 53.25,
-  averageMarketEggPrice: 11.8,
-  averageMarketChickenPrice: 195.0,
-  medicineCost: 30000,
-  vaccinationCost: 12000,
-  laborCost: 48000,
-  electricityCost: 21000,
-  waterCost: 6000,
-  transportCost: 15000,
-  otherCost: 9000,
-  eggsProduced: 0,
-  chickensSold: 1550,
-  averageWeightKg: 2.2,
-  chickenPricePerKg: 195.0,
-  eggPrice: 11.8
-};
-
 export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegistered }) {
-  const [formData, setFormData] = useState({ ...DEFAULT_FORM });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [farms, setFarms] = useState([]);
+  const [loadingFarms, setLoadingFarms] = useState(true);
+  const [stats, setStats] = useState({ totalFarms: 0, totalBirds: 0, totalDiagnoses: 0 });
 
   useEffect(() => {
     fetchFeaturedProducts();
+    fetchFarms();
+    fetchStats();
   }, []);
 
   const fetchFeaturedProducts = async () => {
@@ -54,424 +36,226 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
       if (data.success && data.products) {
         setFeaturedProducts(data.products.slice(0, 6));
       }
-    } catch {
-      setFeaturedProducts([]);
-    } finally {
-      setLoadingProducts(false);
-    }
+    } catch { setFeaturedProducts([]); }
+    finally { setLoadingProducts(false); }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleRegisterFarm = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
+  const fetchFarms = async () => {
     try {
-      const res = await fetch('/api/farms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
+      const res = await fetch('/api/farms');
       const data = await res.json();
-      if (data.success && data.farm) {
-        if (setActiveFarmId) setActiveFarmId(data.farm._id);
-        localStorage.setItem('farmId', data.farm._id);
-        setFormData({ ...DEFAULT_FORM });
-        if (onFarmRegistered) onFarmRegistered(data.farm);
-        setActiveTab('myfarm');
-      } else {
-        setError(data.error || 'Failed to register farm.');
+      if (data.success && data.farms) {
+        setFarms(data.farms);
+        // Calculate aggregate stats
+        let totalBirds = 0;
+        data.farms.forEach(f => {
+          totalBirds += (f.initialChickens || f.totalChickens || 0);
+        });
+        setStats(prev => ({ ...prev, totalFarms: data.farms.length, totalBirds }));
       }
-    } catch {
-      setError('Network error. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setFarms([]); }
+    finally { setLoadingFarms(false); }
   };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch('/api/history?limit=1000');
+      const data = await res.json();
+      if (data.success) {
+        setStats(prev => ({ ...prev, totalDiagnoses: data.count || 0 }));
+      }
+    } catch {}
+  };
+
+  const hasFarms = farms.length > 0;
 
   return (
-    <div className="space-y-12 max-w-7xl mx-auto animate-fade-in pb-8">
-      {/* ── Hero Banner ── */}
+    <div className="space-y-10 max-w-7xl mx-auto animate-fade-in pb-8">
+      {/* ── Hero Section ── */}
       <div className="glass-panel p-6 sm:p-10 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-emerald-950/30 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
+          <div className="space-y-4 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5" /> Next-Gen Poultry Intelligence & Trade
+              <Sparkles className="w-3.5 h-3.5" /> Smart Poultry Intelligence Platform
             </span>
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-emerald-200 to-teal-400 tracking-tight">
-              AgriMind Farming Dashboard
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-emerald-200 to-teal-400 tracking-tight leading-tight">
+              Manage Your Poultry Farm with Data-Driven Intelligence
             </h2>
-            <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
-              Register your farm to run automated ML Profit Forecasting (Lasso pipeline), diagnose diseases with EfficientNetB3 deep learning, and buy/sell farming supplies & poultry produce in our marketplace.
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Track daily flock health, get automated vaccination reminders, predict profits with machine learning, diagnose diseases from droppings photos using EfficientNetB3, and buy or sell farming supplies — all in one platform built for Bangladesh poultry farmers.
             </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <button
+                onClick={() => setActiveTab('flocks')}
+                className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/40"
+              >
+                <Bird className="w-4 h-4" />
+                <span>{hasFarms ? 'Go to Smart Poultry' : 'Create Your First Farm'}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('market')}
+                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all shadow-md"
+              >
+                <ShoppingBag className="w-4 h-4 text-emerald-400" />
+                <span>Browse Marketplace</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('doctors')}
+                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all shadow-md"
+              >
+                <Stethoscope className="w-4 h-4 text-blue-400" />
+                <span>Find a Vet</span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 shrink-0">
-            <button
-              onClick={() => setActiveTab('myfarm')}
-              className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all shadow-md"
-            >
-              <Warehouse className="w-4 h-4 text-emerald-400" />
-              <span>View My Farms</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('market')}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/40"
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Browse Marketplace</span>
-            </button>
+          {/* Illustration / Stats Side */}
+          <div className="shrink-0 w-full lg:w-72 space-y-3">
+            <div className="p-5 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-transparent border border-emerald-500/20 text-center">
+              <Bird className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
+              <p className="text-2xl font-extrabold text-emerald-300">{stats.totalBirds.toLocaleString()}</p>
+              <p className="text-[11px] text-slate-400">Birds Monitored</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                <p className="text-lg font-bold text-cyan-400">{stats.totalFarms}</p>
+                <p className="text-[10px] text-slate-400">Farms</p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                <p className="text-lg font-bold text-amber-400">{stats.totalDiagnoses}</p>
+                <p className="text-[10px] text-slate-400">Diagnoses</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Section 1: Farm Registration Form (Directly on Dashboard) ── */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-          <div>
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-100 flex items-center gap-2.5">
-              <Warehouse className="w-6 h-6 text-emerald-400" />
-              Register a New Poultry Farm
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Fill in your farm details and operational expenses. Profit will be automatically calculated via our trained ML model upon submission.
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleRegisterFarm} className="glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 space-y-8 shadow-2xl">
-          {error && (
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
-              <span>{error}</span>
+      {/* ── Farm Entry Point ── */}
+      {!loadingFarms && (
+        <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl">
+          {hasFarms ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                  <Warehouse className="w-5 h-5 text-emerald-400" />
+                  Your Farms ({farms.length})
+                </h3>
+                <button
+                  onClick={() => setActiveTab('flocks')}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                >
+                  Open Smart Poultry <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {farms.slice(0, 3).map(f => (
+                  <button
+                    key={f._id}
+                    onClick={() => {
+                      setActiveFarmId(f._id);
+                      localStorage.setItem('farmId', f._id);
+                      setActiveTab('flocks');
+                    }}
+                    className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-left transition-all group space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800 text-emerald-400">
+                        {f.chickenType}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                    <h4 className="text-sm font-bold text-slate-100 truncate">{f.farmName}</h4>
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>{f.city}, {f.country}</span>
+                      <span className="font-semibold text-slate-300">{(f.initialChickens || 0).toLocaleString()} birds</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mx-auto flex items-center justify-center">
+                <Bird className="w-8 h-8 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-100">Start Your Smart Poultry Journey</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  Create your first farm to unlock batch management, daily check-ins, AI-powered diagnostics, and ML profit forecasting.
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('flocks')}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-sm font-bold hover:opacity-90 transition-all shadow-lg mx-auto flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" /> Create Your First Farm
+              </button>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Group 1: Owner & Contact */}
-          <div className="space-y-3">
-            <h4 className="text-xs uppercase font-bold tracking-wider text-emerald-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-              <Users className="w-4 h-4" /> 1. Owner & Contact Information
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Owner Name *</label>
-                <input
-                  type="text"
-                  name="ownerName"
-                  value={formData.ownerName}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g. Mohammad Rahman"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                />
+      {/* ── How It Works ── */}
+      <div className="space-y-5">
+        <h3 className="text-lg font-bold text-slate-100 text-center">How It Works</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              icon: Warehouse,
+              step: '1',
+              title: 'Create a Farm',
+              desc: 'Register your poultry farm with flock details, location, and breed type. Start a new batch to begin tracking.',
+              color: 'emerald'
+            },
+            {
+              icon: ClipboardCheck,
+              step: '2',
+              title: 'Log Daily Check-Ins',
+              desc: 'Record morning and evening routines — feed, water, mortality, and upload droppings photos for AI analysis.',
+              color: 'cyan'
+            },
+            {
+              icon: TrendingUp,
+              step: '3',
+              title: 'Get Alerts & Guidance',
+              desc: 'Receive age-based vaccination reminders, weather alerts, flock health status, and ML-predicted profit estimates.',
+              color: 'amber'
+            }
+          ].map(item => (
+            <div key={item.step} className="glass-panel rounded-2xl p-6 border border-slate-800 text-center space-y-3 hover:border-slate-700 transition-colors">
+              <div className={`w-12 h-12 rounded-xl bg-${item.color}-500/10 border border-${item.color}-500/20 mx-auto flex items-center justify-center`}>
+                <item.icon className={`w-6 h-6 text-${item.color}-400`} />
               </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300 flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-emerald-400" /> Phone Number (Mandatory) *
-                </label>
-                <input
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g. +880 1712-345678"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                />
+              <div className="text-xs font-bold text-emerald-400 bg-emerald-500/10 w-6 h-6 rounded-full flex items-center justify-center mx-auto">
+                {item.step}
               </div>
+              <h4 className="text-sm font-bold text-slate-100">{item.title}</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">{item.desc}</p>
             </div>
-          </div>
-
-          {/* Group 2: Farm Identity & Location */}
-          <div className="space-y-3">
-            <h4 className="text-xs uppercase font-bold tracking-wider text-cyan-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-              <MapPin className="w-4 h-4" /> 2. Farm Identity & Geolocation
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Farm Name *</label>
-                <input
-                  type="text"
-                  name="farmName"
-                  value={formData.farmName}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g. Green Valley Agro"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Country *</label>
-                <input
-                  type="text"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g. Bangladesh"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">City / District (For Live Weather) *</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  placeholder="e.g. Gazipur, Dhaka"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Group 3: Flock & Feed Parameters */}
-          <div className="space-y-3">
-            <h4 className="text-xs uppercase font-bold tracking-wider text-teal-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-              <Bird className="w-4 h-4" /> 3. Flock & Feed Parameters (ML Model Features)
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Chicken Type</label>
-                <select
-                  name="chickenType"
-                  value={formData.chickenType}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                >
-                  {CHICKEN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Initial Flock</label>
-                <input
-                  type="number"
-                  name="initialChickens"
-                  value={formData.initialChickens}
-                  onChange={handleChange}
-                  min="1"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Average Active Flock</label>
-                <input
-                  type="number"
-                  name="averageChickens"
-                  value={formData.averageChickens}
-                  onChange={handleChange}
-                  min="1"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Age (Months)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="ageMonths"
-                  value={formData.ageMonths}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Feed Consumed (kg)</label>
-                <input
-                  type="number"
-                  name="feedKg"
-                  value={formData.feedKg}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Mortality Count</label>
-                <input
-                  type="number"
-                  name="mortality"
-                  value={formData.mortality}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Feed Price (BDT/kg)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="feedPricePerKg"
-                  value={formData.feedPricePerKg}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-300">Market Chicken (BDT/kg)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="averageMarketChickenPrice"
-                  value={formData.averageMarketChickenPrice}
-                  onChange={handleChange}
-                  min="0"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Group 4: Operating Expenses */}
-          <div className="space-y-3">
-            <h4 className="text-xs uppercase font-bold tracking-wider text-purple-400 flex items-center gap-2 border-b border-slate-800 pb-2">
-              <PieChart className="w-4 h-4" /> 4. Operational Overhead Expenses (BDT)
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Medicine</label>
-                <input
-                  type="number"
-                  name="medicineCost"
-                  value={formData.medicineCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Vaccination</label>
-                <input
-                  type="number"
-                  name="vaccinationCost"
-                  value={formData.vaccinationCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Labor</label>
-                <input
-                  type="number"
-                  name="laborCost"
-                  value={formData.laborCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Electricity</label>
-                <input
-                  type="number"
-                  name="electricityCost"
-                  value={formData.electricityCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Water</label>
-                <input
-                  type="number"
-                  name="waterCost"
-                  value={formData.waterCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Transport</label>
-                <input
-                  type="number"
-                  name="transportCost"
-                  value={formData.transportCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Misc / Other</label>
-                <input
-                  type="number"
-                  name="otherCost"
-                  value={formData.otherCost}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-medium text-slate-400 block mb-1">Market Egg Price</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  name="averageMarketEggPrice"
-                  value={formData.averageMarketEggPrice}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-4 px-6 rounded-2xl font-extrabold text-base transition-all bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:opacity-95 text-slate-950 shadow-xl shadow-emerald-950/40 hover:scale-[1.005] flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {submitting ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Registering Farm & Running ML Profit Model...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                <span>Register Farm & View in My Farm</span>
-              </>
-            )}
-          </button>
-        </form>
+          ))}
+        </div>
       </div>
 
-      {/* ── Section 2: Shopping & Marketplace Items (Directly on Dashboard) ── */}
+      {/* ── Marketplace Section ── */}
       <div className="space-y-5">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
           <div className="space-y-0.5">
             <h3 className="text-xl sm:text-2xl font-extrabold text-slate-100 flex items-center gap-2.5">
               <ShoppingBag className="w-6 h-6 text-emerald-400" />
-              Explore Marketplace & Poultry Supplies
+              AgriShop — Poultry Supplies & Marketplace
             </h3>
             <p className="text-xs text-slate-400">
               Instruments, vaccines, medicines, feed, and farmer produce available for immediate order.
             </p>
           </div>
-
           <button
             onClick={() => setActiveTab('market')}
             className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
           >
-            <span>Explore All Products ({featuredProducts.length}+)</span>
+            <span>Explore All Products</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -508,7 +292,6 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
                     </div>
                   )}
                 </div>
-
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div className="space-y-1.5">
                     <h4 className="font-bold text-xs sm:text-sm text-slate-100 group-hover:text-emerald-300 line-clamp-1">
@@ -518,13 +301,11 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
                       {product.description}
                     </p>
                   </div>
-
                   <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
                     <div>
-                      <span className="text-base font-extrabold text-emerald-400">৳ {product.price.toLocaleString()}</span>
+                      <span className="text-base font-extrabold text-emerald-400">৳ {product.price?.toLocaleString()}</span>
                       <span className="text-[10px] text-slate-500 ml-1">/{product.unit}</span>
                     </div>
-
                     <span className="text-[11px] font-bold text-slate-300 group-hover:text-emerald-400 flex items-center gap-1">
                       Order Item →
                     </span>
@@ -536,7 +317,7 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
         )}
       </div>
 
-      {/* ── Section 3: Quick Diagnostics Feature Callout ── */}
+      {/* ── Quick Diagnostics Callout ── */}
       <button
         onClick={() => setActiveTab('disease')}
         className="w-full glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 hover:border-emerald-500/40 transition-all text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:scale-[1.005]"
@@ -555,7 +336,6 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
             </p>
           </div>
         </div>
-
         <span className="shrink-0 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
           Open Classifier →
         </span>
