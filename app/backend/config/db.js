@@ -14,14 +14,22 @@ const mongoose = require('mongoose');
 mongoose.set('bufferCommands', false);
 mongoose.set('bufferTimeoutMS', 500);
 
+let cachedConn = null;
+
 const connectDB = async () => {
+  if (mongoose.connection && mongoose.connection.readyState >= 1) {
+    return true;
+  }
+  if (cachedConn) {
+    return cachedConn;
+  }
   const mongoURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/agrimind';
   try {
-    const conn = await mongoose.connect(mongoURI, {
-      serverSelectionTimeoutMS: 1500,
+    cachedConn = await mongoose.connect(mongoURI, {
+      serverSelectionTimeoutMS: 3500,
       socketTimeoutMS: 5000
     });
-    console.log(`✅ Connected to MongoDB: ${conn.connection.host}`);
+    console.log(`✅ Connected to MongoDB: ${cachedConn.connection.host || 'Atlas'}`);
     return true;
   } catch (error) {
     console.warn(`⚠️ MongoDB Connection Notice: ${error.message}`);

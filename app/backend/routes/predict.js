@@ -23,9 +23,13 @@ const { SEED_DATA } = require('../seeds/diseaseTreatmentMap');
 const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
 // Upload directory setup
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+const uploadsDir = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.join(__dirname, '..', 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Notice: uploadsDir creation setup in predict.js:', e.message);
 }
 
 const storage = multer.diskStorage({
