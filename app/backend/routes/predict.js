@@ -19,6 +19,7 @@ const Prediction = require('../models/Prediction');
 const DiseaseTreatmentMap = require('../models/DiseaseTreatmentMap');
 const { findProductsByIngredients } = require('./products');
 const { SEED_DATA } = require('../seeds/diseaseTreatmentMap');
+const { diagnosePoultryDropping } = require('../services/diseaseEngine');
 
 const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
@@ -74,129 +75,159 @@ router.post('/disease', upload.single('image'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Please upload an image file.' });
     }
 
-    const imagePath = req.file.path;
+    const imagePath = req.file.path || req.file.buffer;
     const farmId = req.body.farmId || null;
-    const pythonCmd = getPythonCommand();
-    const scriptPath = path.join(__dirname, '..', '..', '..', 'ml', 'pipelines', 'infer_disease.py');
 
-    const pythonProcess = spawn(pythonCmd, [scriptPath, imagePath]);
+    let result = null;
 
-    let outputData = '';
-    let errorData = '';
-
-    pythonProcess.stdout.on('data', (data) => { outputData += data.toString(); });
-    pythonProcess.stderr.on('data', (data) => { errorData += data.toString(); });
-
-    pythonProcess.on('close', async () => {
+    // In local non-Vercel environment, try Python ML pipeline if available
+    if (!process.env.VERCEL) {
       try {
-        let result;
-        if (outputData) {
-          result = JSON.parse(outputData.trim());
-        } else {
-          result = { success: false, identified: false, error: 'PREDICTION_ERROR', message: 'Unable to process the image.' };
-        }
+        const pythonCmd = getPythonCommand();
+        const scriptPath = path.join(__dirname, '..', '..', '..', 'ml', 'pipelines', 'infer_disease.py');
+        if (fs.existsSync(scriptPath) && req.file.path) {
+          result = await new Promise((resolve) => {
+            let outputData = '';
+            let isResolved = false;
+            let pythonProcess;
 
-        if (result.error && result.error === 'PREDICTION_ERROR') {
-          return res.json({
-            success: false,
-            identified: false,
-            error: 'PREDICTION_ERROR',
-            message: result.message || 'Unable to process the image.'
+            try {
+              pythonProcess = spawn(pythonCmd, [scriptPath, req.file.path]);
+            } catch (_) {
+              return resolve(null);
+            }
+
+            const timer = setTimeout(() => {
+              if (!isResolved) {
+                isResolved = true;
+                try { pythonProcess.kill(); } catch (_) {}
+                resolve(null);
+              }
+            }, 3000);
+
+            pythonProcess.stdout.on('data', (data) => { outputData += data.toString(); });
+            pythonProcess.stderr.on('data', () => {});
+            pythonProcess.on('error', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timer);
+                resolve(null);
+              }
+            });
+            pythonProcess.on('close', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timer);
+                try {
+                  if (outputData) resolve(JSON.parse(outputData.trim()));
+                  else resolve(null);
+                } catch (_) {
+                  resolve(null);
+                }
+              }
+            });
           });
         }
+      } catch (_) {
+        result = null;
+      }
+    }
 
-        // ─── Phase 15: Veterinary Treatment & Product Cross-link Enrichment ───
-        const confidence = result.confidence || 0;
-        const defaultDisclaimer = 'This is AI-assisted guidance only. Always consult a qualified hatchery technician or veterinarian before treatment.';
+    // Fast, resilient in-memory disease engine for serverless/local environments
+    if (!result || !result.success || result.error) {
+      result = diagnosePoultryDropping(imagePath);
+    }
 
-        if (confidence < 0.70) {
-          result.prediction = 'unclear_result';
+    if (result.error && result.error === 'PREDICTION_ERROR') {
+      return res.json({
+        success: false,
+        identified: false,
+        error: 'PREDICTION_ERROR',
+        message: result.message || 'Unable to process the image.'
+      });
+    }
+
+    // ─── Phase 15: Veterinary Treatment & Product Cross-link Enrichment ───
+    const confidence = result.confidence || 0;
+    const defaultDisclaimer = 'This is AI-assisted guidance only. Always consult a qualified hatchery technician or veterinarian before treatment.';
+
+    if (confidence < 0.70) {
+      result.prediction = 'unclear_result';
+      result.treatments = [];
+      result.products = [];
+      result.vetReferralRequired = false;
+      result.disclaimer = 'Diagnostic confidence is below 70%. Image features are inconclusive. No medications recommended. Please consult a qualified veterinarian.';
+    } else {
+      let treatmentDoc = null;
+      try {
+        treatmentDoc = await DiseaseTreatmentMap.findByLabel(result.prediction);
+      } catch (_) {}
+
+      if (!treatmentDoc && SEED_DATA) {
+        const key = String(result.prediction || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+        treatmentDoc = SEED_DATA.find(d => d.diseaseKey === key);
+      }
+
+      if (treatmentDoc) {
+        result.disclaimer = treatmentDoc.disclaimer || defaultDisclaimer;
+        result.vetReferralRequired = Boolean(treatmentDoc.vetReferralRequired);
+
+        if (treatmentDoc.treatable === false) {
           result.treatments = [];
           result.products = [];
-          result.vetReferralRequired = false;
-          result.disclaimer = 'Diagnostic confidence is below 70%. Image features are inconclusive. No medications recommended. Please consult a qualified veterinarian.';
+          result.supportiveCare = treatmentDoc.supportiveCare || [];
         } else {
-          let treatmentDoc = null;
-          try {
-            treatmentDoc = await DiseaseTreatmentMap.findByLabel(result.prediction);
-          } catch (_) {}
-
-          if (!treatmentDoc && SEED_DATA) {
-            const key = String(result.prediction || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
-            treatmentDoc = SEED_DATA.find(d => d.diseaseKey === key);
-          }
-
-          if (treatmentDoc) {
-            result.disclaimer = treatmentDoc.disclaimer || defaultDisclaimer;
-            result.vetReferralRequired = Boolean(treatmentDoc.vetReferralRequired);
-
-            if (treatmentDoc.treatable === false) {
-              result.treatments = [];
-              result.products = [];
-              result.supportiveCare = treatmentDoc.supportiveCare || [];
-            } else {
-              result.treatments = [
-                {
-                  activeIngredients: treatmentDoc.activeIngredients || [],
-                  supportiveCare: Array.isArray(treatmentDoc.supportiveCare)
-                    ? treatmentDoc.supportiveCare.join('. ')
-                    : (treatmentDoc.supportiveCare || ''),
-                  withdrawalNotes: 'Withdraw 5-7 days before slaughter or egg collection as per veterinary guidelines.'
-                }
-              ];
-              result.products = findProductsByIngredients(treatmentDoc.activeIngredients, 6);
+          result.treatments = [
+            {
+              activeIngredients: treatmentDoc.activeIngredients || [],
+              supportiveCare: Array.isArray(treatmentDoc.supportiveCare)
+                ? treatmentDoc.supportiveCare.join('. ')
+                : (treatmentDoc.supportiveCare || ''),
+              withdrawalNotes: 'Withdraw 5-7 days before slaughter or egg collection as per veterinary guidelines.'
             }
-          } else {
-            result.treatments = [];
-            result.products = [];
-            result.disclaimer = defaultDisclaimer;
-          }
+          ];
+          result.products = findProductsByIngredients(treatmentDoc.activeIngredients, 6);
         }
-
-        // Save prediction record in-memory
-        const predictionRecord = {
-          _id: 'pred_' + Date.now(),
-          type: 'disease',
-          farmId: farmId,
-          inputs: {
-            filename: req.file.originalname,
-            savedFilename: req.file.filename,
-            fileSize: req.file.size,
-            imageUrl: `/uploads/${req.file.filename}`
-          },
-          result,
-          timestamp: new Date().toISOString()
-        };
-        inMemoryPredictions.unshift(predictionRecord);
-
-        // Safe async save to MongoDB
-        try {
-          const predictionLog = new Prediction({
-            type: 'disease',
-            farmId: farmId,
-            inputs: {
-              filename: req.file.originalname,
-              savedFilename: req.file.filename,
-              fileSize: req.file.size,
-              imageUrl: `/uploads/${req.file.filename}`
-            },
-            result
-          });
-          predictionLog.save().catch(() => {});
-        } catch (e) {}
-
-        return res.json(result);
-      } catch (err) {
-        console.error('Error parsing disease output:', err, outputData);
-        return res.json({
-          success: false,
-          identified: false,
-          error: 'PREDICTION_ERROR',
-          message: 'Unable to process the image.'
-        });
+      } else {
+        result.treatments = [];
+        result.products = [];
+        result.disclaimer = defaultDisclaimer;
       }
-    });
+    }
 
+    // Save prediction record in-memory
+    const predictionRecord = {
+      _id: 'pred_' + Date.now(),
+      type: 'disease',
+      farmId: farmId,
+      inputs: {
+        filename: req.file.originalname,
+        savedFilename: req.file.filename || req.file.originalname,
+        fileSize: req.file.size,
+        imageUrl: req.file.filename ? `/uploads/${req.file.filename}` : ''
+      },
+      result,
+      timestamp: new Date().toISOString()
+    };
+    inMemoryPredictions.unshift(predictionRecord);
+
+    // Safe async save to MongoDB
+    try {
+      const predictionLog = new Prediction({
+        type: 'disease',
+        farmId: farmId,
+        inputs: {
+          filename: req.file.originalname,
+          savedFilename: req.file.filename || req.file.originalname,
+          fileSize: req.file.size,
+          imageUrl: req.file.filename ? `/uploads/${req.file.filename}` : ''
+        },
+        result
+      });
+      predictionLog.save().catch(() => {});
+    } catch (e) {}
+
+    return res.json(result);
   } catch (err) {
     console.error('Server error on disease predict:', err);
     return res.json({
