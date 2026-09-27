@@ -8,3 +8,6 @@ docs/
 *.log
 .DS_Store
 Thumbs.db
+package-lock.json
+app/backend/package-lock.json
+app/frontend/package-lock.json
