@@ -48,3 +48,6 @@ Thumbs.db
 .cache/
 .temp/
 .tempmediaStorage/
+
+.vercel
+.env*
