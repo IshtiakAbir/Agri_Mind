@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "AgriMind — Unified Smart Poultry Health, Trade & Financial Intelligence Platform",
   "scripts": {
-    "build": "cd app/frontend && npm install && npm run build",
+    "build": "cd app/frontend && npm install --include=dev && npm run build",
     "install:all": "cd app/backend && npm install && cd ../frontend && npm install",
     "dev:backend": "cd app/backend && node server.js",
     "dev:frontend": "cd app/frontend && npm run dev",
