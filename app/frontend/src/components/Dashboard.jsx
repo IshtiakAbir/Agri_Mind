@@ -1,31 +1,50 @@
 /**
  * =============================================================================
- * Module: AgriMind Landing Dashboard (Hero + Marketplace + Farm Entry)
+ * Module: AgriMind Home Page (Public Landing)
  * Component: /app/frontend/src/components/Dashboard.jsx
- * Description: Landing page with hero section, marketplace product grid,
- *              farm entry point, how-it-works section, and footer links.
- *              No farm-creation form embedded — user goes to Smart Poultry.
+ * Description: Full-screen hero, about section, and marketplace product grid.
+ *              Does NOT contain any farm creation form or farm-specific data.
+ *              All farm management lives under "Your Farm" (/your-farm route).
+ *
+ *  Layout:
+ *    A. Transparent nav (handled in App.jsx; this component renders BELOW it)
+ *    B. Full-viewport hero with photo overlay
+ *    C. About section (dark background)
+ *    D. AgriShop marketplace grid with category filter
+ *    E. Diagnostics callout + footer (footer in App.jsx, omitted here)
+ *
+ *  Hero photo: Drop your final image at
+ *    /app/frontend/src/assets/hero-poultry.jpg
+ *  or serve from your CDN and update HERO_IMG_SRC below.
  * =============================================================================
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sparkles, Warehouse, ShoppingBag, Bird, ArrowRight, Activity,
-  CheckCircle2, DollarSign, ChevronRight, RefreshCw, Shield,
-  BarChart3, Stethoscope, ClipboardCheck, TrendingUp, Zap,
-  Star, Tag, Phone
+  ShoppingBag, ArrowRight, Activity,
+  CheckCircle2, ChevronRight,
+  BarChart3, Stethoscope, ClipboardCheck, TrendingUp,
+  Star, Tag, Phone, RefreshCw, Sparkles, Bird
 } from 'lucide-react';
 
-export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegistered }) {
+// ─── Hero image source ────────────────────────────────────────────────────────
+// Place your final image at app/frontend/src/assets/hero-poultry.jpg
+// The fallback gradient is used if the image fails to load or is not yet placed.
+const HERO_IMG_SRC = '/hero-poultry.jpg';
+
+// ─── Category list for marketplace filter ────────────────────────────────────
+const CATEGORIES = ['All', 'Feed', 'Medicine', 'Vaccine', 'Equipment', 'Produce', 'Instrument'];
+
+export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegistered, user, onYourFarmClick }) {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [farms, setFarms] = useState([]);
-  const [loadingFarms, setLoadingFarms] = useState(true);
   const [stats, setStats] = useState({ totalFarms: 0, totalBirds: 0, totalDiagnoses: 0 });
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [heroImgError, setHeroImgError] = useState(false);
+  const marketplaceRef = useRef(null);
 
   useEffect(() => {
     fetchFeaturedProducts();
-    fetchFarms();
     fetchStats();
   }, []);
 
@@ -34,312 +53,353 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
       const res = await fetch('/api/products');
       const data = await res.json();
       if (data.success && data.products) {
-        setFeaturedProducts(data.products.slice(0, 6));
+        setFeaturedProducts(data.products.slice(0, 12));
       }
     } catch { setFeaturedProducts([]); }
     finally { setLoadingProducts(false); }
   };
 
-  const fetchFarms = async () => {
-    try {
-      const res = await fetch('/api/farms');
-      const data = await res.json();
-      if (data.success && data.farms) {
-        setFarms(data.farms);
-        // Calculate aggregate stats
-        let totalBirds = 0;
-        data.farms.forEach(f => {
-          totalBirds += (f.initialChickens || f.totalChickens || 0);
-        });
-        setStats(prev => ({ ...prev, totalFarms: data.farms.length, totalBirds }));
-      }
-    } catch { setFarms([]); }
-    finally { setLoadingFarms(false); }
-  };
-
   const fetchStats = async () => {
     try {
-      const res = await fetch('/api/history?limit=1000');
-      const data = await res.json();
-      if (data.success) {
-        setStats(prev => ({ ...prev, totalDiagnoses: data.count || 0 }));
+      const [farmsRes, histRes] = await Promise.allSettled([
+        fetch('/api/farms'),
+        fetch('/api/history?limit=1000')
+      ]);
+      if (farmsRes.status === 'fulfilled') {
+        const d = await farmsRes.value.json();
+        if (d.success && d.farms) {
+          const totalBirds = d.farms.reduce((s, f) => s + (f.initialChickens || f.totalChickens || 0), 0);
+          setStats(prev => ({ ...prev, totalFarms: d.farms.length, totalBirds }));
+        }
+      }
+      if (histRes.status === 'fulfilled') {
+        const d = await histRes.value.json();
+        if (d.success) setStats(prev => ({ ...prev, totalDiagnoses: d.count || 0 }));
       }
     } catch {}
   };
 
-  const hasFarms = farms.length > 0;
+  // Filter products by category
+  const filteredProducts = activeCategory === 'All'
+    ? featuredProducts
+    : featuredProducts.filter(p => p.category === activeCategory);
+
+  const scrollToMarketplace = () => {
+    marketplaceRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto animate-fade-in pb-8">
-      {/* ── Hero Section ── */}
-      <div className="glass-panel p-6 sm:p-10 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900/95 via-slate-900/70 to-emerald-950/30 relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="w-full">
+      {/* ═══════════════════════════════════════════════════════════════════════
+          A. HERO SECTION — Full viewport height
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <section
+        className="relative w-full flex items-center justify-center overflow-hidden"
+        style={{ minHeight: '100dvh' }}
+        aria-label="AgriMind hero section"
+      >
+        {/* Background image or fallback gradient */}
+        {!heroImgError ? (
+          <img
+            src={HERO_IMG_SRC}
+            alt="Bangladesh poultry farm — chickens in a well-maintained shed"
+            onError={() => setHeroImgError(true)}
+            className="absolute inset-0 w-full h-full object-cover object-center"
+            fetchpriority="high"
+          />
+        ) : (
+          /* Fallback: rich dark gradient when no image is placed yet */
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-emerald-950 to-teal-950" />
+        )}
 
-        <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          <div className="space-y-4 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-              <Sparkles className="w-3.5 h-3.5" /> Smart Poultry Intelligence Platform
+        {/* Dark gradient overlay — darker at top and bottom */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to bottom, rgba(2,10,18,0.82) 0%, rgba(2,10,18,0.45) 40%, rgba(2,10,18,0.55) 70%, rgba(2,10,18,0.90) 100%)'
+          }}
+        />
+
+        {/* Hero text — centered */}
+        <div className="relative z-10 text-center px-5 sm:px-8 max-w-4xl mx-auto space-y-7">
+          {/* Badge */}
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 backdrop-blur-sm">
+            <Sparkles className="w-3.5 h-3.5" />
+            AI-Powered Poultry Intelligence for Bangladesh
+          </span>
+
+          {/* Main headline — 2 lines max */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight"
+              style={{ textShadow: '0 4px 24px rgba(0,0,0,0.7)' }}>
+            Smarter poultry farming,<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-300">
+              every single day
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-emerald-200 to-teal-400 tracking-tight leading-tight">
-              Manage Your Poultry Farm with Data-Driven Intelligence
-            </h2>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Track daily flock health, get automated vaccination reminders, predict profits with machine learning, diagnose diseases from droppings photos using EfficientNetB3, and buy or sell farming supplies — all in one platform built for Bangladesh poultry farmers.
-            </p>
-            <div className="flex flex-wrap gap-3 pt-2">
-              <button
-                onClick={() => setActiveTab('flocks')}
-                className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/40"
-              >
-                <Bird className="w-4 h-4" />
-                <span>{hasFarms ? 'Go to Smart Poultry' : 'Create Your First Farm'}</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('market')}
-                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all shadow-md"
-              >
-                <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                <span>Browse Marketplace</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('doctors')}
-                className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all shadow-md"
-              >
-                <Stethoscope className="w-4 h-4 text-blue-400" />
-                <span>Find a Vet</span>
-              </button>
-            </div>
+          </h1>
+
+          {/* Sub-headline */}
+          <p className="text-base sm:text-lg text-slate-200/90 max-w-2xl mx-auto leading-relaxed font-light"
+             style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
+            Track your flock, get daily guidance, and reach a vet or the marketplace in one place.
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+            <button
+              onClick={scrollToMarketplace}
+              className="px-7 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold flex items-center gap-2.5 transition-all shadow-xl shadow-emerald-900/50 hover:scale-105 active:scale-100"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              Explore marketplace
+            </button>
+            <button
+              onClick={() => setActiveTab('doctors')}
+              className="px-7 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/30 flex items-center gap-2.5 backdrop-blur-sm transition-all hover:scale-105 active:scale-100"
+            >
+              <Stethoscope className="w-4 h-4" />
+              Find a doctor
+            </button>
           </div>
 
-          {/* Illustration / Stats Side */}
-          <div className="shrink-0 w-full lg:w-72 space-y-3">
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-transparent border border-emerald-500/20 text-center">
-              <Bird className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
-              <p className="text-2xl font-extrabold text-emerald-300">{stats.totalBirds.toLocaleString()}</p>
-              <p className="text-[11px] text-slate-400">Birds Monitored</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                <p className="text-lg font-bold text-cyan-400">{stats.totalFarms}</p>
-                <p className="text-[10px] text-slate-400">Farms</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
-                <p className="text-lg font-bold text-amber-400">{stats.totalDiagnoses}</p>
-                <p className="text-[10px] text-slate-400">Diagnoses</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Farm Entry Point ── */}
-      {!loadingFarms && (
-        <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-slate-800 shadow-xl">
-          {hasFarms ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                  <Warehouse className="w-5 h-5 text-emerald-400" />
-                  Your Farms ({farms.length})
-                </h3>
-                <button
-                  onClick={() => setActiveTab('flocks')}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
-                >
-                  Open Smart Poultry <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {farms.slice(0, 3).map(f => (
-                  <button
-                    key={f._id}
-                    onClick={() => {
-                      setActiveFarmId(f._id);
-                      localStorage.setItem('farmId', f._id);
-                      setActiveTab('flocks');
-                    }}
-                    className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 text-left transition-all group space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-950/60 border border-slate-800 text-emerald-400">
-                        {f.chickenType}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-100 truncate">{f.farmName}</h4>
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span>{f.city}, {f.country}</span>
-                      <span className="font-semibold text-slate-300">{(f.initialChickens || 0).toLocaleString()} birds</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mx-auto flex items-center justify-center">
-                <Bird className="w-8 h-8 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-100">Start Your Smart Poultry Journey</h3>
-                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                  Create your first farm to unlock batch management, daily check-ins, AI-powered diagnostics, and ML profit forecasting.
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveTab('flocks')}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-sm font-bold hover:opacity-90 transition-all shadow-lg mx-auto flex items-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" /> Create Your First Farm
-              </button>
+          {/* Live stats strip — only if we have real data */}
+          {stats.totalBirds > 0 && (
+            <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
+              {[
+                { value: stats.totalBirds.toLocaleString(), label: 'Birds Monitored' },
+                { value: stats.totalFarms.toString(), label: 'Active Farms' },
+                { value: stats.totalDiagnoses.toString(), label: 'AI Diagnoses' }
+              ].map(s => (
+                <div key={s.label} className="text-center">
+                  <p className="text-2xl font-extrabold text-emerald-300">{s.value}</p>
+                  <p className="text-[11px] text-slate-300 font-medium">{s.label}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
-      )}
 
-      {/* ── How It Works ── */}
-      <div className="space-y-5">
-        <h3 className="text-lg font-bold text-slate-100 text-center">How It Works</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            {
-              icon: Warehouse,
-              step: '1',
-              title: 'Create a Farm',
-              desc: 'Register your poultry farm with flock details, location, and breed type. Start a new batch to begin tracking.',
-              color: 'emerald'
-            },
-            {
-              icon: ClipboardCheck,
-              step: '2',
-              title: 'Log Daily Check-Ins',
-              desc: 'Record morning and evening routines — feed, water, mortality, and upload droppings photos for AI analysis.',
-              color: 'cyan'
-            },
-            {
-              icon: TrendingUp,
-              step: '3',
-              title: 'Get Alerts & Guidance',
-              desc: 'Receive age-based vaccination reminders, weather alerts, flock health status, and ML-predicted profit estimates.',
-              color: 'amber'
-            }
-          ].map(item => (
-            <div key={item.step} className="glass-panel rounded-2xl p-6 border border-slate-800 text-center space-y-3 hover:border-slate-700 transition-colors">
-              <div className={`w-12 h-12 rounded-xl bg-${item.color}-500/10 border border-${item.color}-500/20 mx-auto flex items-center justify-center`}>
-                <item.icon className={`w-6 h-6 text-${item.color}-400`} />
-              </div>
-              <div className="text-xs font-bold text-emerald-400 bg-emerald-500/10 w-6 h-6 rounded-full flex items-center justify-center mx-auto">
-                {item.step}
-              </div>
-              <h4 className="text-sm font-bold text-slate-100">{item.title}</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">{item.desc}</p>
+        {/* Scroll indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 animate-bounce">
+          <div className="w-7 h-10 rounded-full border-2 border-white/30 flex items-start justify-center pt-2">
+            <div className="w-1 h-2.5 rounded-full bg-emerald-400/80" />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          B. ABOUT SECTION — dark background, generous spacing
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-slate-950 py-24 px-5 sm:px-8" aria-label="About AgriMind">
+        <div className="max-w-4xl mx-auto space-y-6">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">About us</p>
+          <p className="text-3xl sm:text-4xl lg:text-5xl font-light text-white leading-snug max-w-3xl">
+            Bringing digital tools to poultry farming. We help farmers{' '}
+            <em className="font-semibold not-italic text-emerald-300">monitor their flocks</em>,
+            prevent disease, and{' '}
+            <em className="font-semibold not-italic text-teal-300">grow profit</em>{' '}
+            with confidence.
+          </p>
+          <div className="w-16 h-0.5 bg-emerald-500 rounded-full mt-6" />
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          C. AGRISHOP MARKETPLACE GRID
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <section
+        ref={marketplaceRef}
+        id="marketplace"
+        className="bg-slate-900 py-20 px-5 sm:px-8"
+        aria-label="AgriShop marketplace"
+      >
+        <div className="max-w-7xl mx-auto space-y-10">
+          {/* Section header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400 flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4" /> AgriShop
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
+                Poultry Supplies &amp; Marketplace
+              </h2>
+              <p className="text-sm text-slate-400 max-w-xl">
+                Instruments, vaccines, medicines, feed, and farmer produce available for immediate order.
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Marketplace Section ── */}
-      <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
-          <div className="space-y-0.5">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-100 flex items-center gap-2.5">
-              <ShoppingBag className="w-6 h-6 text-emerald-400" />
-              AgriShop — Poultry Supplies & Marketplace
-            </h3>
-            <p className="text-xs text-slate-400">
-              Instruments, vaccines, medicines, feed, and farmer produce available for immediate order.
-            </p>
+            <button
+              onClick={() => setActiveTab('market')}
+              className="shrink-0 px-5 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 flex items-center gap-1.5 transition-colors"
+            >
+              View all products <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            onClick={() => setActiveTab('market')}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
-          >
-            <span>Explore All Products</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
 
-        {loadingProducts ? (
-          <div className="glass-panel p-12 rounded-2xl text-center space-y-2 border border-slate-800">
-            <RefreshCw className="w-6 h-6 text-emerald-400 animate-spin mx-auto" />
-            <p className="text-xs text-slate-400">Loading marketplace items...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featuredProducts.map(product => (
-              <div
-                key={product._id}
-                onClick={() => setActiveTab('market')}
-                className="glass-panel rounded-2xl border border-slate-800/90 hover:border-emerald-500/40 transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer hover:scale-[1.01] shadow-xl"
+          {/* Category filter pills */}
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                  activeCategory === cat
+                    ? 'bg-emerald-500 text-slate-950 border-emerald-500 shadow-md'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-emerald-500/40 hover:text-emerald-400'
+                }`}
               >
-                <div className="relative h-40 w-full bg-slate-900 overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-2.5 left-2.5">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-emerald-300 border border-emerald-500/30">
-                      {product.category}
-                    </span>
-                  </div>
-                  {product.badge && (
-                    <div className="absolute top-2.5 right-2.5">
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500 text-slate-950 shadow-md">
-                        {product.badge}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                  <div className="space-y-1.5">
-                    <h4 className="font-bold text-xs sm:text-sm text-slate-100 group-hover:text-emerald-300 line-clamp-1">
-                      {product.name}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 line-clamp-2">
-                      {product.description}
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <div>
-                      <span className="text-base font-extrabold text-emerald-400">৳ {product.price?.toLocaleString()}</span>
-                      <span className="text-[10px] text-slate-500 ml-1">/{product.unit}</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-slate-300 group-hover:text-emerald-400 flex items-center gap-1">
-                      Order Item →
-                    </span>
-                  </div>
-                </div>
-              </div>
+                {cat}
+              </button>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* ── Quick Diagnostics Callout ── */}
-      <button
-        onClick={() => setActiveTab('disease')}
-        className="w-full glass-panel rounded-3xl p-6 sm:p-8 border border-slate-800 hover:border-emerald-500/40 transition-all text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group hover:scale-[1.005]"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 group-hover:bg-rose-500/20 transition-colors">
-            <Activity className="w-7 h-7 text-rose-400" />
+          {/* Products grid */}
+          {loadingProducts ? (
+            <div className="py-20 text-center space-y-3">
+              <RefreshCw className="w-7 h-7 text-emerald-400 animate-spin mx-auto" />
+              <p className="text-xs text-slate-400">Loading marketplace items...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-16 text-center space-y-2">
+              <ShoppingBag className="w-10 h-10 text-slate-600 mx-auto" />
+              <p className="text-sm text-slate-400">No products in this category yet.</p>
+              <button onClick={() => setActiveCategory('All')} className="text-xs text-emerald-400 underline">Show all</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {filteredProducts.map(product => (
+                <div
+                  key={product._id}
+                  onClick={() => setActiveTab('market')}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => e.key === 'Enter' && setActiveTab('market')}
+                  className="bg-slate-950 rounded-2xl border border-slate-800 hover:border-emerald-500/50 transition-all duration-300 overflow-hidden flex flex-col group cursor-pointer hover:scale-[1.02] shadow-lg hover:shadow-emerald-950/30 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                >
+                  {/* Product image */}
+                  <div className="relative h-44 w-full bg-slate-900 overflow-hidden">
+                    <img
+                      src={product.image}
+                      alt={`${product.name} — ${product.category}`}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-2.5 left-2.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-emerald-300 border border-emerald-500/30">
+                        {product.category}
+                      </span>
+                    </div>
+                    {product.badge && (
+                      <div className="absolute top-2.5 right-2.5">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500 text-slate-950 shadow-md">
+                          {product.badge}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Product info */}
+                  <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-sm text-slate-100 group-hover:text-emerald-300 line-clamp-1 transition-colors">
+                        {product.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 line-clamp-2">{product.description}</p>
+                    </div>
+                    <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-base font-extrabold text-emerald-400">৳ {product.price?.toLocaleString()}</span>
+                        <span className="text-[10px] text-slate-500 ml-1">/{product.unit}</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
+                        Order →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          D. QUICK DIAGNOSTICS CALLOUT
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-slate-950 py-16 px-5 sm:px-8" aria-label="Disease diagnostics callout">
+        <div className="max-w-7xl mx-auto">
+          <button
+            onClick={() => setActiveTab('disease')}
+            className="w-full rounded-3xl p-8 sm:p-10 border border-slate-800 hover:border-rose-500/40 transition-all text-left flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 group hover:bg-slate-900/60 bg-slate-900/40 backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0 group-hover:bg-rose-500/20 transition-colors">
+                <Activity className="w-8 h-8 text-rose-400" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                  AI Disease Diagnostics
+                  <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                </h3>
+                <p className="text-sm text-slate-400 max-w-lg">
+                  Upload droppings photos to detect Coccidiosis, Salmonella, or Newcastle disease using our EfficientNetB3 deep learning model — instant results, no lab needed.
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 px-5 py-2.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold group-hover:bg-rose-500/20 transition-colors">
+              Upload a Photo →
+            </span>
+          </button>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          E. HOME FOOTER
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <footer className="bg-slate-950 border-t border-slate-900 py-12 px-5 sm:px-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8">
+          {/* Brand */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center">
+                <Bird className="w-5 h-5 text-slate-950" />
+              </div>
+              <span className="text-lg font-bold text-slate-100">AgriMind</span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Unified Poultry Health, Trade &amp; Financial Intelligence Platform — built for Bangladesh farmers.
+            </p>
+            <p className="text-[10px] text-slate-600">© 2026 AgriMind. All rights reserved.</p>
           </div>
-          <div className="space-y-1">
-            <h4 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              AI Disease Diagnostics Classifier
-              <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
-            </h4>
-            <p className="text-xs text-slate-400">
-              Upload poultry fecal images to detect Coccidiosis, Salmonella, or Newcastle disease using our EfficientNetB3 deep learning model.
+
+          {/* Platform links */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Platform</p>
+            {[
+              { id: 'market', label: 'Marketplace' },
+              { id: 'disease', label: 'Diagnostics' },
+              { id: 'doctors', label: 'Doctors' },
+              { id: 'history', label: 'Reports' },
+            ].map(link => (
+              <button
+                key={link.id}
+                onClick={() => setActiveTab(link.id)}
+                className="block text-sm text-slate-400 hover:text-emerald-400 transition-colors text-left"
+              >
+                {link.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Contact / support */}
+          <div className="space-y-3">
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Support</p>
+            <p className="text-sm text-slate-400">support@agrimind.app</p>
+            <p className="text-sm text-slate-400">Available Mon–Sat, 9 AM – 6 PM BST</p>
+            <p className="text-xs text-slate-600 mt-2">
+              For veterinary emergencies, use the Doctors directory.
             </p>
           </div>
         </div>
-        <span className="shrink-0 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
-          Open Classifier →
-        </span>
-      </button>
+      </footer>
     </div>
   );
 }

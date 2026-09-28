@@ -262,8 +262,8 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
       ? [diagnosisResult.prediction.toLowerCase().replace(/\s+/g, '_')]
       : [];
 
+    // Notes derived exclusively from AI Droppings Diagnosis — no manual symptom text field
     const finalNotes = [
-      symptomNotes.trim(),
       diagnosisResult?.success && diagnosisResult?.prediction
         ? `[AI Droppings Scan: ${diagnosisResult.prediction}${diagnosisResult.confidence ? ` (${(diagnosisResult.confidence * 100).toFixed(0)}%)` : ''}]`
         : ''
@@ -730,16 +730,7 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
             </div>
           )}
 
-          {/* Observations / Notes Input */}
-          <div className="pt-1">
-            <input
-              type="text"
-              placeholder="Additional observations or notes (optional)..."
-              value={symptomNotes}
-              onChange={(e) => setSymptomNotes(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-emerald-500 transition-colors"
-            />
-          </div>
+          {/* Observations/symptoms text field removed — diagnosis comes from droppings photo only */}
         </div>
 
         {/* Submit Button */}
