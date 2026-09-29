@@ -20,6 +20,7 @@ import {
   Wifi,
   Save,
   RotateCw,
+  RefreshCw,
   Send,
   Sparkles,
   HelpCircle,
@@ -28,17 +29,40 @@ import {
   Camera,
   Upload,
   X,
-  ShieldCheck
+  ShieldCheck,
+  ShieldAlert,
+  Stethoscope,
+  ShoppingBag,
+  Phone,
+  Calendar,
+  Check
 } from 'lucide-react';
 import { BatchContext } from '../context/BatchContext';
 
-export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
+export default function DailyCheckInCard({ batch, todayLog = null, onLogSubmitted = null }) {
   const { submitDailyLog } = useContext(BatchContext);
+
+  const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const now = new Date();
   const currentHour = now.getHours();
   const defaultMode = currentHour < 12 ? 'morning' : 'evening';
-  const todayDateStr = now.toISOString().split('T')[0];
+  const todayDateStr = getLocalDateStr(now);
+
+  const formattedDate = useMemo(() => {
+    try {
+      const [y, m, d] = todayDateStr.split('-');
+      const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+      return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return todayDateStr;
+    }
+  }, [todayDateStr]);
 
   const [mode, setMode] = useState(defaultMode);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -61,13 +85,28 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
   const draftKey = `agrimind_checkin_${batchId}_${todayDateStr}_${mode}`;
   const offlineQueueKey = 'agrimind_pending_submissions';
 
+  // Completion indicators for today's routines
+  const isMorningComplete = Boolean(
+    todayLog?.morning?.completedAt ||
+    todayLog?.morning?.feedCompleted ||
+    todayLog?.morningRoutine?.completed ||
+    todayLog?.morningRoutine?.completedAt
+  );
+
+  const isEveningComplete = Boolean(
+    todayLog?.evening?.completedAt ||
+    todayLog?.evening?.feedCompleted ||
+    todayLog?.eveningRoutine?.completed ||
+    todayLog?.eveningRoutine?.completedAt
+  );
+
   // 1. Calculate live birds for validation and display
   const liveBirds = useMemo(() => {
     if (!batch) return 0;
     return Math.max(0, (batch.initialChickens || 0) - (batch.cumulativeMortality || 0));
   }, [batch]);
 
-  // 2. Draft Storage: Load draft on mount / mode switch
+  // 2. Draft Storage: Load draft or prepopulate todayLog on mount / mode switch
   useEffect(() => {
     if (!batchId) return;
     try {
@@ -80,6 +119,26 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
         if (parsed.mortalityCount !== undefined) setMortalityCount(parsed.mortalityCount);
         if (parsed.diagnosisResult !== undefined) setDiagnosisResult(parsed.diagnosisResult);
         if (parsed.symptomNotes !== undefined) setSymptomNotes(parsed.symptomNotes);
+      } else if (todayLog) {
+        // Prepopulate with already recorded values
+        if (mode === 'morning') {
+          const morning = todayLog.morning || todayLog.morningRoutine;
+          if (morning) {
+            setFeedCompleted(morning.feedCompleted !== undefined ? morning.feedCompleted : (morning.feedProvided !== undefined ? morning.feedProvided : true));
+            setWaterRefilled(morning.waterRefilled !== undefined ? morning.waterRefilled : true);
+          }
+        } else {
+          const evening = todayLog.evening || todayLog.eveningRoutine;
+          if (evening) {
+            setFeedCompleted(evening.feedCompleted !== undefined ? evening.feedCompleted : (evening.feedProvided !== undefined ? evening.feedProvided : true));
+            if (todayLog.feedAmountKg || evening.feedWeightKg) {
+              setFeedAmountKg(String(todayLog.feedAmountKg || evening.feedWeightKg));
+            }
+          }
+        }
+        if (todayLog.mortalityCount !== undefined) {
+          setMortalityCount(todayLog.mortalityCount);
+        }
       } else {
         // Reset defaults if no draft
         setFeedCompleted(true);
@@ -92,7 +151,7 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
         setSymptomNotes('');
       }
     } catch (_) {}
-  }, [draftKey, batchId, mode]);
+  }, [draftKey, batchId, mode, todayLog]);
 
   // 3. Draft Storage: Save draft on any form field change
   const saveDraft = useCallback(() => {
@@ -342,71 +401,105 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
   return (
     <div className="p-4 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-5">
       {/* ─── Header & Routine Switcher ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5">
-            <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
-              {mode === 'morning' ? (
-                <Sun className="w-5 h-5 text-amber-400" />
-              ) : (
-                <Moon className="w-5 h-5 text-indigo-400" />
-              )}
-            </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div className="flex items-center gap-3.5">
+          <div
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all shadow-sm ${
+              mode === 'morning'
+                ? 'bg-amber-500/10 border border-amber-500/25 text-amber-400'
+                : 'bg-indigo-500/10 border border-indigo-500/25 text-indigo-400'
+            }`}
+          >
+            {mode === 'morning' ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
           </div>
-          <div>
-            <h3 className="font-bold text-sm sm:text-base text-slate-100 flex items-center gap-2">
-              Daily Flock Check-In
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-800 text-slate-300">
-                {todayDateStr}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h3 className="font-bold text-sm sm:text-base text-slate-100 tracking-tight">
+                Daily Flock Check-In
+              </h3>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-800/90 border border-slate-700/60 text-slate-300 whitespace-nowrap shadow-sm">
+                <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>{formattedDate}</span>
               </span>
-            </h3>
+            </div>
             <p className="text-[11px] text-slate-400">
               {mode === 'morning' ? 'Morning Inspection (Water & Feed Check)' : 'Evening Feed & Population Census'}
             </p>
           </div>
         </div>
 
-        {/* Routine Mode Pills & Online Indicator */}
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+        {/* Routine Mode Switcher & Telemetry Status */}
+        <div className="flex items-center gap-2.5 self-start md:self-center">
+          <div className="flex bg-slate-950/80 p-1 rounded-2xl border border-slate-800/90 shadow-inner">
             <button
               type="button"
               onClick={() => setMode('morning')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 mode === 'morning'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent'
               }`}
             >
               <Sun className="w-3.5 h-3.5" />
-              Morning
+              <span>Morning</span>
+              {isMorningComplete && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  <span>Done</span>
+                </span>
+              )}
             </button>
+
             <button
               type="button"
               onClick={() => setMode('evening')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 mode === 'evening'
-                  ? 'bg-indigo-500 text-slate-100 font-bold shadow'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent'
               }`}
             >
               <Moon className="w-3.5 h-3.5" />
-              Evening
+              <span>Evening</span>
+              {isEveningComplete && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                  <span>Done</span>
+                </span>
+              )}
             </button>
           </div>
 
           <div
-            title={isOnline ? 'Online — Auto-sync active' : 'Offline — Changes saved locally'}
-            className="p-2 rounded-xl bg-slate-950 border border-slate-800 flex items-center text-slate-400"
+            title={isOnline ? 'Online — Telemetry live & auto-syncing' : 'Offline — Changes safely stored locally'}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/90 text-xs font-medium text-slate-300 shadow-inner"
           >
-            {isOnline ? (
-              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-            ) : (
-              <WifiOff className="w-3.5 h-3.5 text-rose-400" />
-            )}
+            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'} shrink-0`} />
+            <span className="text-[11px] text-slate-400 hidden sm:inline">
+              {isOnline ? 'Live Sync' : 'Offline'}
+            </span>
           </div>
         </div>
       </div>
+
+      {/* ─── Routine Completed Notice ─── */}
+      {((mode === 'morning' && isMorningComplete) || (mode === 'evening' && isEveningComplete)) && (
+        <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3 text-xs text-emerald-300 animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>
+              <strong>{mode === 'morning' ? 'Morning' : 'Evening'} routine recorded.</strong> You can modify values below and save updates.
+            </span>
+          </div>
+          <span className="text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
+            Recorded
+          </span>
+        </div>
+      )}
 
       {/* ─── Feedback & Status Alerts ─── */}
       {statusMessage && (
@@ -643,7 +736,7 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
           ) : (
             <div className="space-y-3">
               {/* Photo Preview & AI Inference Result */}
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800">
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/90 border border-slate-800 relative">
                 <img
                   src={photoPreview}
                   alt="Droppings preview"
@@ -656,65 +749,196 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
                       <span>Diagnosing with EfficientNet AI model...</span>
                     </div>
                   ) : diagnosisResult?.success ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                           diagnosisResult.prediction === 'Healthy'
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                             : diagnosisResult.prediction === 'unclear_result'
                             ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                             : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                         }`}>
-                          {diagnosisResult.prediction}
+                          {String(diagnosisResult.prediction || 'Unknown')}
                         </span>
-                        {diagnosisResult.confidence && (
+                        {diagnosisResult.confidence != null && (
                           <span className="text-[10px] text-slate-400 font-mono">
-                            {(diagnosisResult.confidence * 100).toFixed(1)}% confidence
+                            {(Number(diagnosisResult.confidence) * 100).toFixed(1)}% confidence
+                          </span>
+                        )}
+                        {diagnosisResult.model_source && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+                            AI Model
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-300">
-                        {diagnosisResult.prediction === 'Healthy'
-                          ? 'Flock droppings appear normal and healthy.'
-                          : diagnosisResult.prediction === 'unclear_result'
-                          ? 'Image was unclear. Retake a closer, well-lit photo if abnormalities persist.'
-                          : 'Pathological symptoms detected. Flock status flagged for immediate attention.'}
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        {diagnosisResult.advisory?.description || (
+                          diagnosisResult.prediction === 'Healthy'
+                            ? 'Flock droppings appear normal and healthy.'
+                            : diagnosisResult.prediction === 'unclear_result'
+                            ? 'Image was unclear. Retake a closer, well-lit photo if abnormalities persist.'
+                            : 'Pathological symptoms detected. Flock status flagged for immediate attention.'
+                        )}
                       </p>
                     </div>
                   ) : (
                     <div className="text-xs text-rose-400 py-1">
-                      {diagnosisResult?.error || 'Analysis failed. Tap Remove Photo to try again.'}
+                      {diagnosisResult?.error || diagnosisResult?.message || 'Analysis failed. Tap Remove Photo to try again.'}
                     </div>
                   )}
                 </div>
+
+                {/* Remove photo button */}
+                <button
+                  type="button"
+                  onClick={clearDiagnosisPhoto}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors shrink-0"
+                  title="Remove droppings photo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
+              {/* Probability Distribution if available */}
+              {diagnosisResult?.probabilities && Object.keys(diagnosisResult.probabilities).length > 0 && (
+                <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2 text-xs">
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+                    Probability Distribution:
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.entries(diagnosisResult.probabilities).map(([cls, prob]) => {
+                      const pct = (Number(prob) * 100).toFixed(0);
+                      const isWinner = cls === diagnosisResult.prediction;
+                      return (
+                        <div key={cls} className="space-y-1">
+                          <div className="flex justify-between text-[10px]">
+                            <span className={isWinner ? 'text-slate-100 font-bold' : 'text-slate-400'}>{cls}</span>
+                            <span className={isWinner ? 'text-emerald-400 font-bold' : 'text-slate-500'}>{pct}%</span>
+                          </div>
+                          <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${isWinner ? 'bg-emerald-400' : 'bg-slate-600'}`}
+                              style={{ width: `${Math.max(parseFloat(pct), 4)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Observed Symptoms */}
+              {diagnosisResult?.advisory?.symptoms && (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
+                  <span className="font-bold text-amber-300 block text-[10px] uppercase tracking-wider">
+                    Key Observed Symptoms:
+                  </span>
+                  <p className="text-slate-300 text-[11px] leading-relaxed">{diagnosisResult.advisory.symptoms}</p>
+                </div>
+              )}
+
+              {/* Veterinary Referral Requirement */}
+              {diagnosisResult?.vetReferralRequired && (
+                <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                  <Stethoscope className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Veterinary referral required: This condition requires authorized prescription or quarantine.</span>
+                </div>
+              )}
+
               {/* Treatment & Care guidelines for detected diseases */}
-              {isDiseaseDetected && (diagnosisResult?.treatments?.length > 0 || diagnosisResult?.supportiveCare?.length > 0 || diagnosisResult?.advisory?.recommended_treatment) && (
-                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs space-y-2">
+              {isDiseaseDetected && (
+                ((Array.isArray(diagnosisResult?.treatments) && diagnosisResult.treatments.length > 0) ||
+                 (Array.isArray(diagnosisResult?.supportiveCare) && diagnosisResult.supportiveCare.length > 0) ||
+                 diagnosisResult?.advisory?.recommended_treatment)
+              ) && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs space-y-2.5">
                   <div className="flex items-center gap-1.5 font-bold text-rose-200">
                     <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                     <span>Recommended Treatment & Biosecurity Protocol:</span>
                   </div>
+
                   {diagnosisResult?.advisory?.recommended_treatment && (
                     <p className="text-[11px] text-rose-200/95 leading-relaxed bg-slate-900/60 p-2.5 rounded-xl border border-rose-500/20">
-                      {diagnosisResult.advisory.recommended_treatment}
+                      {typeof diagnosisResult.advisory.recommended_treatment === 'string'
+                        ? diagnosisResult.advisory.recommended_treatment
+                        : JSON.stringify(diagnosisResult.advisory.recommended_treatment)}
                     </p>
                   )}
-                  {diagnosisResult?.treatments?.length > 0 && (
+
+                  {/* Treatments list (supports strings OR objects with activeIngredients, supportiveCare, withdrawalNotes) */}
+                  {Array.isArray(diagnosisResult?.treatments) && diagnosisResult.treatments.length > 0 && (
+                    <div className="space-y-2">
+                      {diagnosisResult.treatments.map((t, idx) => {
+                        if (typeof t === 'string') {
+                          return (
+                            <div key={idx} className="p-2 rounded-xl bg-slate-900/80 border border-rose-500/20 text-[11px]">
+                              {t}
+                            </div>
+                          );
+                        }
+
+                        // t is an object
+                        return (
+                          <div key={idx} className="p-2.5 rounded-xl bg-slate-900/80 border border-rose-500/20 space-y-1.5 text-[11px]">
+                            {Array.isArray(t?.activeIngredients) && t.activeIngredients.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="text-slate-400 text-[10px]">Active Ingredients:</span>
+                                {t.activeIngredients.map((ing, iIdx) => (
+                                  <span key={iIdx} className="px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 text-[10px] font-semibold font-mono">
+                                    {String(ing)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {t?.supportiveCare && (
+                              <p className="text-rose-200/90">
+                                <strong>Care: </strong>{String(t.supportiveCare)}
+                              </p>
+                            )}
+                            {t?.withdrawalNotes && (
+                              <p className="text-[10px] text-amber-400/90 font-medium">
+                                ⚠️ {String(t.withdrawalNotes)}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Supportive care list if present */}
+                  {Array.isArray(diagnosisResult?.supportiveCare) && diagnosisResult.supportiveCare.length > 0 && (
                     <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-200/90 pl-1">
-                      {diagnosisResult.treatments.map((t, idx) => (
-                        <li key={idx}>{t}</li>
+                      {diagnosisResult.supportiveCare.slice(0, 3).map((c, idx) => (
+                        <li key={idx}>{typeof c === 'string' ? c : (c?.text || c?.description || JSON.stringify(c))}</li>
                       ))}
                     </ul>
                   )}
-                  {diagnosisResult?.supportiveCare?.length > 0 && (
-                    <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-200/90 pl-1">
-                      {diagnosisResult.supportiveCare.slice(0, 2).map((c, idx) => (
-                        <li key={idx}>{c}</li>
-                      ))}
-                    </ul>
+
+                  {/* Recommended products matching this disease if present */}
+                  {Array.isArray(diagnosisResult?.products) && diagnosisResult.products.length > 0 && (
+                    <div className="pt-1 border-t border-rose-500/20">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400 flex items-center gap-1">
+                          <ShoppingBag className="w-3 h-3" /> Matched Veterinary Supplies ({diagnosisResult.products.length}):
+                        </span>
+                        <span className="text-[9px] text-slate-500">Verified AgriShop</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {diagnosisResult.products.slice(0, 4).map(prod => (
+                          <div key={prod._id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] flex justify-between items-center gap-2">
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-200 truncate">{prod.name}</p>
+                              <p className="text-[10px] text-slate-400">{prod.unit} • {prod.sellerName || 'AgriMind Supplier'}</p>
+                            </div>
+                            <span className="shrink-0 font-bold text-emerald-400 text-xs">৳{prod.price}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
+
                   <p className="text-[10px] text-rose-400/80 pt-0.5">
                     Isolate affected birds immediately and consult a registered veterinarian if mortality rises.
                   </p>
@@ -740,11 +964,15 @@ export default function DailyCheckInCard({ batch, onLogSubmitted = null }) {
           className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all disabled:opacity-50"
         >
           {submitting ? (
-            <span>Saving Routine...</span>
+            <span className="flex items-center gap-2">
+              <RotateCw className="w-4 h-4 animate-spin" /> Saving Routine...
+            </span>
           ) : (
             <>
               <Send className="w-4 h-4" />
-              Submit {mode === 'morning' ? 'Morning' : 'Evening'} Check-In
+              {mode === 'morning'
+                ? (isMorningComplete ? 'Update Morning Check-In' : 'Save Morning Check-In')
+                : (isEveningComplete ? 'Update Evening Check-In' : 'Save Evening Check-In')}
             </>
           )}
         </button>

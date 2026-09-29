@@ -17,6 +17,7 @@ import {
 import { BatchContext } from '../context/BatchContext';
 import BatchDashboard from './BatchDashboard';
 import FarmSummary from './FarmSummary';
+import ErrorBoundary from './ErrorBoundary';
 
 export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveTab }) {
   const { batches } = useContext(BatchContext);
@@ -156,19 +157,21 @@ export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveT
       </div>
 
       {/* Content */}
-      {view === 'summary' ? (
-        <FarmSummary
-          farm={activeFarm}
-          batches={batches.filter(b => String(b.farmId) === String(activeFarm?._id))}
-          onNavigateToBatch={(batchId) => setView('batches')}
-          onNavigateToDiagnosis={() => setActiveTab && setActiveTab('disease')}
-        />
-      ) : (
-        <BatchDashboard
-          activeFarmId={activeFarmId}
-          setActiveFarmId={setActiveFarmId}
-        />
-      )}
+      <ErrorBoundary fallbackTitle="Flock View Temporarily Unavailable">
+        {view === 'summary' ? (
+          <FarmSummary
+            farm={activeFarm}
+            batches={batches.filter(b => String(b.farmId) === String(activeFarm?._id))}
+            onNavigateToBatch={(batchId) => setView('batches')}
+            onNavigateToDiagnosis={() => setActiveTab && setActiveTab('disease')}
+          />
+        ) : (
+          <BatchDashboard
+            activeFarmId={activeFarmId}
+            setActiveFarmId={setActiveFarmId}
+          />
+        )}
+      </ErrorBoundary>
     </div>
   );
 }

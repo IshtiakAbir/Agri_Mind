@@ -97,13 +97,14 @@ router.post('/disease', upload.single('image'), async (req, res) => {
               return resolve(null);
             }
 
+            // Timeout: if Python takes more than 12000ms, fall through to the JS engine
             const timer = setTimeout(() => {
               if (!isResolved) {
                 isResolved = true;
                 try { pythonProcess.kill(); } catch (_) {}
                 resolve(null);
               }
-            }, 3000);
+            }, 12000);
 
             pythonProcess.stdout.on('data', (data) => { outputData += data.toString(); });
             pythonProcess.stderr.on('data', () => {});
@@ -150,13 +151,17 @@ router.post('/disease', upload.single('image'), async (req, res) => {
     // ─── Phase 15: Veterinary Treatment & Product Cross-link Enrichment ───
     const confidence = result.confidence || 0;
     const defaultDisclaimer = 'This is AI-assisted guidance only. Always consult a qualified hatchery technician or veterinarian before treatment.';
+    const thresholds = require('../config/thresholds');
+    const minConfidence = thresholds.diagnosisConfidenceThreshold !== undefined
+      ? thresholds.diagnosisConfidenceThreshold
+      : 0.70;
 
-    if (confidence < 0.70) {
+    if (confidence < minConfidence) {
       result.prediction = 'unclear_result';
       result.treatments = [];
       result.products = [];
       result.vetReferralRequired = false;
-      result.disclaimer = 'Diagnostic confidence is below 70%. Image features are inconclusive. No medications recommended. Please consult a qualified veterinarian.';
+      result.disclaimer = `Diagnostic confidence is below ${Math.round(minConfidence * 100)}%. Image features are inconclusive. No medications recommended. Please consult a qualified veterinarian.`;
     } else {
       let treatmentDoc = null;
       try {
@@ -200,6 +205,7 @@ router.post('/disease', upload.single('image'), async (req, res) => {
       _id: 'pred_' + Date.now(),
       type: 'disease',
       farmId: farmId,
+      userId: req.body.userId || (req.user ? (req.user.id || req.user._id) : null),
       inputs: {
         filename: req.file.originalname,
         savedFilename: req.file.filename || req.file.originalname,
@@ -227,7 +233,7 @@ router.post('/disease', upload.single('image'), async (req, res) => {
       predictionLog.save().catch(() => {});
     } catch (e) {}
 
-    return res.json(result);
+    return res.json({ ...result, savedFilename: req.file.filename || req.file.originalname });
   } catch (err) {
     console.error('Server error on disease predict:', err);
     return res.json({
@@ -271,5 +277,8 @@ router.get('/history', async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
+
+router.inMemoryPredictions = inMemoryPredictions;
+router.uploadsDir = uploadsDir;
 
 module.exports = router;

@@ -90,7 +90,12 @@ function evaluateStatus(params = {}) {
     : thresholds.morningCutoffHour;
 
   if (currentHour >= morningCutoff) {
-    const morningComplete = !!(todayLog && todayLog.morning && todayLog.morning.completedAt);
+    const morningComplete = !!(
+      todayLog && (
+        (todayLog.morning && todayLog.morning.completedAt) ||
+        (todayLog.morningRoutine && (todayLog.morningRoutine.completedAt || todayLog.morningRoutine.completed))
+      )
+    );
     if (!morningComplete) {
       reasons.push({
         code: 'MORNING_MISSED',
@@ -106,7 +111,12 @@ function evaluateStatus(params = {}) {
     : thresholds.eveningCutoffHour;
 
   if (currentHour >= eveningCutoff) {
-    const eveningComplete = !!(todayLog && todayLog.evening && todayLog.evening.completedAt);
+    const eveningComplete = !!(
+      todayLog && (
+        (todayLog.evening && todayLog.evening.completedAt) ||
+        (todayLog.eveningRoutine && (todayLog.eveningRoutine.completedAt || todayLog.eveningRoutine.completed))
+      )
+    );
     if (!eveningComplete) {
       reasons.push({
         code: 'EVENING_MISSED',

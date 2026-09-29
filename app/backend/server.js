@@ -36,8 +36,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Upload directory setup & static serving
 const uploadsDir = process.env.VERCEL ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
@@ -71,6 +71,29 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/weather',  require('./routes/weather'));
 app.use('/api/history',  require('./routes/predict')); // Alias for history query convenience
 app.use('/api/doctors',  require('./routes/doctors'));
+
+// ─── Public Homepage Content ────────────────────────────────────────────────
+app.get('/api/content/homepage', (req, res) => {
+  try {
+    const contentPath = path.join(__dirname, 'config', 'homepageContent.json');
+    if (fs.existsSync(contentPath)) {
+      const content = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
+      return res.json({ success: true, content });
+    }
+  } catch (_) {}
+  res.json({
+    success: true,
+    content: {
+      heroHeadline: "Smarter poultry farming, every single day",
+      heroSubtext: "Track batch health with daily smart check-ins, detect diseases from droppings in seconds, consult verified poultry doctors, and trade directly on AgriShop.",
+      aboutTitle: "Everything your flock needs, in one unified platform",
+      aboutText: "AgriMind bridges the gap between field reality and agricultural intelligence. From automated batch schedules and real-time disease detection to direct veterinary consultations, our tools are built specifically for the needs of Bangladeshi poultry farmers."
+    }
+  });
+});
+
+// ─── Admin Panel Routes ──────────────────────────────────────────────────────
+app.use('/api/admin',    require('./routes/admin'));
 
 // ─── Smart Poultry Routes (gated by SMART_POULTRY flag) ──────────────────────
 // These routes are only registered when SMART_POULTRY=true in .env.

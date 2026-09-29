@@ -50,6 +50,24 @@ export const BatchProvider = ({ children }) => {
         const batchObj = d.batch || {};
         const liveBirds = batchObj.liveBirdsEstimate ?? Math.max(0, (batchObj.initialChickens || 0) - (batchObj.cumulativeMortality || 0));
 
+        let weatherData = d.weather || null;
+        if (!weatherData) {
+          try {
+            const wRes = await fetch('/api/weather?city=Dhaka');
+            const wJson = await wRes.json();
+            if (wJson.success) {
+              weatherData = {
+                temperatureC: wJson.temperature,
+                humidityPct: wJson.humidity,
+                apparentTempC: wJson.apparentTemperature,
+                heatIndexC: wJson.heatIndex,
+                windKph: wJson.windSpeed,
+                cityName: wJson.city
+              };
+            }
+          } catch (_) {}
+        }
+
         // Build the shape that BatchDashboard.jsx and child components expect
         setDashboardData({
           evaluation: {
@@ -57,7 +75,7 @@ export const BatchProvider = ({ children }) => {
             reasons: d.reasons || [],
             evaluatedAt: new Date().toISOString(),
           },
-          weather: null,
+          weather: weatherData,
           metrics: { liveBirds },
           ageDays: batchObj.currentAge ?? batchObj.currentAgeDays ?? 0,
           stage: stageObj,
@@ -179,7 +197,7 @@ export const BatchProvider = ({ children }) => {
       const data = await res.json();
       if (data.success) {
         // Refresh dashboard immediately to reflect updated live count & reasons
-        fetchBatchDashboard(batchId);
+        await fetchBatchDashboard(batchId);
         return { success: true, log: data.log, metrics: data.metrics };
       }
       return { success: false, message: data.message || 'Failed to record check-in.' };
@@ -189,18 +207,18 @@ export const BatchProvider = ({ children }) => {
   };
 
   /**
-   * Updates task status or notes via PATCH /api/batches/:id/tasks.
+   * Updates task status or notes via PATCH /api/batches/:id/tasks/:taskId.
    */
   const updateBatchTask = async (batchId, taskId, patchData) => {
     try {
-      const res = await fetch(`/api/batches/${batchId}/tasks`, {
+      const res = await fetch(`/api/batches/${batchId}/tasks/${taskId}`, {
         method: 'PATCH',
         headers: getHeaders(),
         body: JSON.stringify({ taskId, ...patchData })
       });
       const data = await res.json();
       if (data.success) {
-        fetchBatchDashboard(batchId);
+        await fetchBatchDashboard(batchId);
         return { success: true, task: data.task };
       }
       return { success: false, message: data.message || 'Failed to update task.' };

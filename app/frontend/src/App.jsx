@@ -27,6 +27,8 @@ import PredictionHistory from './components/PredictionHistory';
 import EmployeeSupport from './components/EmployeeSupport';
 import SmartPoultry from './components/SmartPoultry';
 import DoctorDirectory from './components/DoctorDirectory';
+import AdminPanel from './components/AdminPanel';
+import ErrorBoundary from './components/ErrorBoundary';
 import {
   Feather,
   Bird,
@@ -42,7 +44,8 @@ import {
   X,
   BarChart3,
   User,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -56,14 +59,41 @@ const queryClient = new QueryClient({
 
 const MainApp = () => {
   const { user, logout, language, toggleLanguage, loading, loginGuest } = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState('home');
+
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.startsWith('/admin') || hash === '#/admin' || hash === '#admin') {
+        return 'admin';
+      }
+    }
+    return 'home';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [authView, setAuthView] = useState('login'); // 'login' | 'register'
-  const [skipAuth, setSkipAuth] = useState(false);
+  const [skipAuth, setSkipAuth] = useState(true);
   const [activeFarmId, setActiveFarmId] = useState(() => localStorage.getItem('farmId') || null);
   const [historyTrigger, setHistoryTrigger] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
+
+  // Sync browser back/forward and direct /admin navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path.startsWith('/admin') || hash === '#/admin' || hash === '#admin') {
+        setActiveTab('admin');
+      } else if (activeTab === 'admin') {
+        setActiveTab('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeTab]);
 
   // Close menus on tab change
   useEffect(() => {
@@ -146,7 +176,6 @@ const MainApp = () => {
     marketplace: language === 'bn' ? 'মার্কেটপ্লেস' : 'Marketplace',
     disease: language === 'bn' ? 'রোগ নির্ণয়' : 'Diagnostics',
     doctors: language === 'bn' ? 'ডাক্তার' : 'Doctors',
-    reports: language === 'bn' ? 'রিপোর্ট' : 'Reports',
     employee: language === 'bn' ? 'কর্মচারী টুলস' : 'Employee Tools',
     logout: language === 'bn' ? 'বাহির হন' : 'Log Out',
     demoAccess: language === 'bn' ? 'লগইন ছাড়া ব্যবহার করুন →' : 'Continue as Guest / Open Access →',
@@ -165,10 +194,78 @@ const MainApp = () => {
     );
   }
 
-  // Unauthenticated Gate
+  // ─── Task 1 & 2: Dedicated Admin Route Gate (/admin) ───
+  if (activeTab === 'admin') {
+    // If not authenticated or not admin/support: render standalone 403 Forbidden page (not a redirect)
+    if (!user || (user.role !== 'admin' && user.role !== 'support')) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center select-none font-sans text-slate-100">
+          <div className="w-20 h-20 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-6 shadow-xl shadow-rose-950/40">
+            <Shield className="w-10 h-10 text-rose-500" />
+          </div>
+          <span className="px-3.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-mono font-bold tracking-wider uppercase mb-3">
+            HTTP 403 Forbidden
+          </span>
+          <h1 className="text-3xl font-extrabold text-slate-100 mb-2">Access Denied</h1>
+          <p className="text-sm text-slate-400 max-w-md mb-8 leading-relaxed">
+            Administrative privileges are required to access this control center. Non-administrative users cannot view or interact with administrative routes.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', '/');
+                setActiveTab('home');
+              }}
+              className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+            >
+              ← Back to AgriMind Home
+            </button>
+            <button
+              onClick={() => {
+                setAuthView('login');
+                setSkipAuth(false);
+                sessionStorage.setItem('loginRedirect', 'admin');
+                window.history.pushState({}, '', '/');
+                setActiveTab('home');
+              }}
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
+            >
+              Log In as Administrator →
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Authenticated admin or support: standalone layout with its own full sidebar & header
+    return (
+      <AdminPanel
+        onExit={() => {
+          window.history.pushState({}, '', '/');
+          setActiveTab('home');
+        }}
+      />
+    );
+  }
+
+  // Unauthenticated Gate (shown when login is required, e.g. clicking Your Farm)
   if (!user && !skipAuth) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-between">
+        <div className="p-4 flex items-center justify-between border-b border-slate-900 bg-slate-950">
+          <button
+            onClick={() => { setSkipAuth(true); setActiveTab('home'); }}
+            className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center gap-1.5 transition-colors"
+          >
+            ← Back to Home
+          </button>
+          <button
+            onClick={handleGuestAccess}
+            className="text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors"
+          >
+            {t.demoAccess}
+          </button>
+        </div>
         {authView === 'login' ? (
           <LoginPage
             onNavigateToRegister={() => setAuthView('register')}
@@ -306,6 +403,19 @@ const MainApp = () => {
                       <p className="text-xs font-bold text-slate-100 truncate">{user.name}</p>
                       <p className="text-[10px] text-slate-400 capitalize">{user.role}</p>
                     </div>
+                    {(user.role === 'admin' || user.role === 'support') && (
+                      <button
+                        onClick={() => {
+                          window.history.pushState({}, '', '/admin');
+                          setActiveTab('admin');
+                          setUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-xs text-emerald-400 hover:bg-emerald-500/10 flex items-center gap-2 transition-colors border-b border-slate-800 font-semibold cursor-pointer"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                        Admin Panel
+                      </button>
+                    )}
                     <button
                       onClick={logout}
                       className="w-full text-left px-4 py-3 text-xs text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors"
@@ -356,13 +466,28 @@ const MainApp = () => {
           ))}
           <div className="pt-4 border-t border-slate-800">
             {user ? (
-              <button
-                onClick={() => { logout(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                {t.logout}
-              </button>
+              <>
+                {(user.role === 'admin' || user.role === 'support') && (
+                  <button
+                    onClick={() => {
+                      window.history.pushState({}, '', '/admin');
+                      setActiveTab('admin');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-5 py-3 mb-2 rounded-2xl text-sm font-semibold text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <Shield className="w-5 h-5 text-emerald-400" />
+                    Admin Panel
+                  </button>
+                )}
+                <button
+                  onClick={() => { logout(); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  {t.logout}
+                </button>
+              </>
             ) : (
               <button
                 onClick={() => { setAuthView('login'); setSkipAuth(false); setMobileMenuOpen(false); }}
@@ -377,47 +502,49 @@ const MainApp = () => {
 
       {/* ─── Main Content Area ─── */}
       <main className={`flex-1 ${activeTab === 'home' ? '' : 'max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
-        {activeTab === 'home' && (
-          <Dashboard
-            setActiveTab={setActiveTab}
-            setActiveFarmId={setActiveFarmId}
-            onFarmRegistered={handleFarmRegistered}
-            user={user}
-            onYourFarmClick={handleYourFarmClick}
-          />
-        )}
-        {activeTab === 'your-farm' && (
-          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <SmartPoultry
-              activeFarmId={activeFarmId}
-              setActiveFarmId={setActiveFarmId}
+        <ErrorBoundary fallbackTitle="Page View Interrupted">
+          {activeTab === 'home' && (
+            <Dashboard
               setActiveTab={setActiveTab}
+              setActiveFarmId={setActiveFarmId}
+              onFarmRegistered={handleFarmRegistered}
+              user={user}
+              onYourFarmClick={handleYourFarmClick}
             />
-          </div>
-        )}
-        {activeTab === 'market' && (
-          <Marketplace
-            activeFarmId={activeFarmId}
-            setActiveTab={setActiveTab}
-            onOpenRegisterFarm={() => setActiveTab('your-farm')}
-          />
-        )}
-        {activeTab === 'disease' && (
-          <DiseaseDetection
-            onPredictionSaved={handlePredictionSaved}
-            farmId={activeFarmId}
-          />
-        )}
-        {activeTab === 'doctors' && (
-          <DoctorDirectory user={user} onLoginRequired={() => { setAuthView('login'); setSkipAuth(false); }} />
-        )}
-        {activeTab === 'history' && (
-          <PredictionHistory
-            key={historyTrigger}
-            farmId={activeFarmId}
-          />
-        )}
-        {activeTab === 'employee' && <EmployeeSupport />}
+          )}
+          {activeTab === 'your-farm' && (
+            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <SmartPoultry
+                activeFarmId={activeFarmId}
+                setActiveFarmId={setActiveFarmId}
+                setActiveTab={setActiveTab}
+              />
+            </div>
+          )}
+          {activeTab === 'market' && (
+            <Marketplace
+              activeFarmId={activeFarmId}
+              setActiveTab={setActiveTab}
+              onOpenRegisterFarm={() => setActiveTab('your-farm')}
+            />
+          )}
+          {activeTab === 'disease' && (
+            <DiseaseDetection
+              onPredictionSaved={handlePredictionSaved}
+              farmId={activeFarmId}
+            />
+          )}
+          {activeTab === 'doctors' && (
+            <DoctorDirectory user={user} onLoginRequired={() => { setAuthView('login'); setSkipAuth(false); }} />
+          )}
+          {activeTab === 'history' && (
+            <PredictionHistory
+              key={historyTrigger}
+              farmId={activeFarmId}
+            />
+          )}
+          {activeTab === 'employee' && <EmployeeSupport />}
+        </ErrorBoundary>
       </main>
 
       {/* ─── Footer ─── */}

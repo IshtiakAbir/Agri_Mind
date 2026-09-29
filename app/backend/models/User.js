@@ -29,8 +29,16 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['farmer', 'employee'],
+    enum: ['farmer', 'employee', 'admin', 'support'],
     default: 'farmer'
+  },
+  suspendedAt: {
+    type: Date,
+    default: null
+  },
+  lastLoginAt: {
+    type: Date,
+    default: null
   },
   createdAt: {
     type: Date,

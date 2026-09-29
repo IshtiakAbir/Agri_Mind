@@ -25,12 +25,19 @@ export default function GuidanceBox({ stage = {}, batch = {}, tasksDue = [] }) {
   const stageName = stage?.name || stage?.stageName || 'Active Phase';
   const feedRecommendation = stage?.feedRecommendation || stage?.feed || null;
 
+  const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Find today's critical milestones
   const todayMilestones = (tasksDue || []).filter(t => {
     if (!t.dueDate) return false;
-    const due = new Date(t.dueDate).toISOString().split('T')[0];
-    const today = new Date().toISOString().split('T')[0];
-    return due === today && t.isCritical;
+    const due = getLocalDateStr(new Date(t.dueDate));
+    const today = getLocalDateStr(new Date());
+    return due === today && t.isCritical && t.status !== 'Completed';
   });
 
   return (

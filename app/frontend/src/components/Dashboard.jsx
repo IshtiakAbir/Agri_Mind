@@ -24,7 +24,8 @@ import {
   ShoppingBag, ArrowRight, Activity,
   CheckCircle2, ChevronRight,
   BarChart3, Stethoscope, ClipboardCheck, TrendingUp,
-  Star, Tag, Phone, RefreshCw, Sparkles, Bird
+  Star, Tag, Phone, RefreshCw, Sparkles, Bird,
+  MapPin, Video, Truck
 } from 'lucide-react';
 
 // ─── Hero image source ────────────────────────────────────────────────────────
@@ -33,20 +34,40 @@ import {
 const HERO_IMG_SRC = '/hero-poultry.jpg';
 
 // ─── Category list for marketplace filter ────────────────────────────────────
-const CATEGORIES = ['All', 'Feed', 'Medicine', 'Vaccine', 'Equipment', 'Produce', 'Instrument'];
+const CATEGORIES = ['All', 'Farm Produce', 'Feed', 'Medicines', 'Vaccines', 'Instruments'];
 
 export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegistered, user, onYourFarmClick }) {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [featuredDoctors, setFeaturedDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
   const [stats, setStats] = useState({ totalFarms: 0, totalBirds: 0, totalDiagnoses: 0 });
   const [activeCategory, setActiveCategory] = useState('All');
   const [heroImgError, setHeroImgError] = useState(false);
+  const [homeContent, setHomeContent] = useState({
+    heroHeadline: "Smarter poultry farming,\nevery single day",
+    heroSubtext: "Track batch health with daily smart check-ins, detect diseases from droppings in seconds, consult verified poultry doctors, and trade directly on AgriShop.",
+    aboutTitle: "About us",
+    aboutText: "Bringing digital tools to poultry farming. We help farmers monitor their flocks, prevent disease, and grow profit with confidence."
+  });
   const marketplaceRef = useRef(null);
 
   useEffect(() => {
     fetchFeaturedProducts();
+    fetchFeaturedDoctors();
     fetchStats();
+    fetchHomeContent();
   }, []);
+
+  const fetchHomeContent = async () => {
+    try {
+      const res = await fetch('/api/content/homepage');
+      const data = await res.json();
+      if (data.success && data.content) {
+        setHomeContent(data.content);
+      }
+    } catch (_) {}
+  };
 
   const fetchFeaturedProducts = async () => {
     try {
@@ -57,6 +78,17 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
       }
     } catch { setFeaturedProducts([]); }
     finally { setLoadingProducts(false); }
+  };
+
+  const fetchFeaturedDoctors = async () => {
+    try {
+      const res = await fetch('/api/doctors?limit=4');
+      const data = await res.json();
+      if (data.success && data.doctors) {
+        setFeaturedDoctors(data.doctors.slice(0, 4));
+      }
+    } catch { setFeaturedDoctors([]); }
+    finally { setLoadingDoctors(false); }
   };
 
   const fetchStats = async () => {
@@ -79,10 +111,24 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
     } catch {}
   };
 
+  // Robust category matching
+  const matchesCategory = (prodCat = '', filterCat = '') => {
+    if (filterCat === 'All') return true;
+    const p = (prodCat || '').toLowerCase();
+    const f = (filterCat || '').toLowerCase();
+    if (p === f) return true;
+    if (f.includes('med') && p.includes('med')) return true;
+    if (f.includes('vac') && p.includes('vac')) return true;
+    if ((f.includes('inst') || f.includes('equip')) && (p.includes('inst') || p.includes('equip'))) return true;
+    if ((f.includes('prod') || f.includes('farm')) && (p.includes('farm') || p.includes('prod'))) return true;
+    if (f.includes('feed') && p.includes('feed')) return true;
+    return p.includes(f) || f.includes(p);
+  };
+
   // Filter products by category
   const filteredProducts = activeCategory === 'All'
     ? featuredProducts
-    : featuredProducts.filter(p => p.category === activeCategory);
+    : featuredProducts.filter(p => matchesCategory(p.category, activeCategory));
 
   const scrollToMarketplace = () => {
     marketplaceRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -130,17 +176,14 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
 
           {/* Main headline — 2 lines max */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tight"
-              style={{ textShadow: '0 4px 24px rgba(0,0,0,0.7)' }}>
-            Smarter poultry farming,<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-300">
-              every single day
-            </span>
+              style={{ textShadow: '0 4px 24px rgba(0,0,0,0.7)', whiteSpace: 'pre-line' }}>
+            {homeContent.heroHeadline}
           </h1>
 
           {/* Sub-headline */}
           <p className="text-base sm:text-lg text-slate-200/90 max-w-2xl mx-auto leading-relaxed font-light"
              style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
-            Track your flock, get daily guidance, and reach a vet or the marketplace in one place.
+            {homeContent.heroSubtext}
           </p>
 
           {/* CTA Buttons */}
@@ -191,13 +234,9 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
       ═══════════════════════════════════════════════════════════════════════ */}
       <section className="bg-slate-950 py-24 px-5 sm:px-8" aria-label="About AgriMind">
         <div className="max-w-4xl mx-auto space-y-6">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">About us</p>
-          <p className="text-3xl sm:text-4xl lg:text-5xl font-light text-white leading-snug max-w-3xl">
-            Bringing digital tools to poultry farming. We help farmers{' '}
-            <em className="font-semibold not-italic text-emerald-300">monitor their flocks</em>,
-            prevent disease, and{' '}
-            <em className="font-semibold not-italic text-teal-300">grow profit</em>{' '}
-            with confidence.
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">{homeContent.aboutTitle || 'About us'}</p>
+          <p className="text-2xl sm:text-3xl lg:text-4xl font-light text-white leading-relaxed max-w-3xl">
+            {homeContent.aboutText}
           </p>
           <div className="w-16 h-0.5 bg-emerald-500 rounded-full mt-6" />
         </div>
@@ -352,7 +391,104 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════════
-          E. HOME FOOTER
+          E. FEATURED POULTRY VETERINARIANS SECTION
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <section className="bg-slate-900 py-20 px-5 sm:px-8 border-t border-slate-800" aria-label="Poultry Veterinarians">
+        <div className="max-w-7xl mx-auto space-y-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
+                <Stethoscope className="w-4 h-4" /> Poultry Doctors
+              </p>
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white">
+                Expert Veterinarians Near You
+              </h2>
+              <p className="text-sm text-slate-400 max-w-xl">
+                Certified poultry health specialists available across all 64 districts for video consultations and on-site farm visits.
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveTab('doctors')}
+              className="shrink-0 px-5 py-2.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold hover:bg-blue-500/20 flex items-center gap-1.5 transition-colors"
+            >
+              Browse All Doctors (64 Districts) <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {loadingDoctors ? (
+            <div className="py-16 text-center space-y-3">
+              <RefreshCw className="w-7 h-7 text-blue-400 animate-spin mx-auto" />
+              <p className="text-xs text-slate-400">Loading veterinary experts...</p>
+            </div>
+          ) : featuredDoctors.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-sm">
+              <p>Veterinary network available via the Doctors tab.</p>
+              <button onClick={() => setActiveTab('doctors')} className="mt-2 text-xs text-blue-400 underline">Open Doctor Directory</button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {featuredDoctors.map(doc => (
+                <div
+                  key={doc._id}
+                  onClick={() => setActiveTab('doctors')}
+                  className="bg-slate-950 rounded-2xl border border-slate-800 hover:border-blue-500/50 transition-all duration-300 p-5 flex flex-col justify-between group cursor-pointer hover:scale-[1.02] shadow-lg hover:shadow-blue-950/30"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-sm">
+                        {doc.name.replace('Dr. ', '')[0]}
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        <span>{doc.rating}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-100 group-hover:text-blue-300 transition-colors truncate">
+                        {doc.name}
+                      </h4>
+                      <p className="text-[11px] text-blue-400 font-medium truncate">{doc.specialty}</p>
+                    </div>
+
+                    <div className="space-y-1.5 text-[11px] text-slate-400 border-t border-slate-900 pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>{doc.district} District</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <ClipboardCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span>{doc.yearsOfExperience} yrs exp • {doc.qualification}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-800/80 mt-3 space-y-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400 flex items-center gap-1">
+                        <Video className="w-3 h-3 text-blue-400" /> Video:
+                      </span>
+                      <span className="font-bold text-emerald-400">৳{doc.consultationFee?.video || 300}</span>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveTab('doctors');
+                      }}
+                      className="w-full py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      Book Consultation →
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          F. HOME FOOTER
       ═══════════════════════════════════════════════════════════════════════ */}
       <footer className="bg-slate-950 border-t border-slate-900 py-12 px-5 sm:px-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8">

@@ -22,8 +22,13 @@ let appointmentCounter = 1;
 // Search/filter doctors. Query params: district, specialty, search, page, limit
 router.get('/', (req, res) => {
   try {
-    const { district, specialty, search, page = 1, limit = 20 } = req.query;
+    const { district, specialty, search, page = 1, limit = 20, includeInactive } = req.query;
     let filtered = [...SEED_DOCTORS];
+
+    // Filter out deactivated doctors for public search
+    if (includeInactive !== 'true') {
+      filtered = filtered.filter(d => d.active !== false && d.isActive !== false);
+    }
 
     if (district) {
       filtered = filtered.filter(d =>
@@ -224,5 +229,8 @@ router.delete('/appointments/:id', (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+router.SEED_DOCTORS = SEED_DOCTORS;
+router.appointments = appointments;
 
 module.exports = router;

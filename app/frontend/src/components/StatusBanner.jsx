@@ -194,16 +194,29 @@ export default function StatusBanner({ batchId, initialEvaluation = null, weathe
         {/* ─── Expandable Reasons Breakdown ─── */}
         {isAttentionRequired && expanded && reasons.length > 0 && (
           <div className="mt-4 pt-4 border-t border-amber-500/20 space-y-2.5 animate-fadeIn">
-            {reasons.map((reasonCode) => {
-              const info = REASON_EXPLANATIONS[reasonCode] || {
-                title: reasonCode.replace(/_/g, ' '),
-                detail: 'Standard flock evaluation threshold triggered.',
+            {reasons.map((reasonItem, idx) => {
+              // Safely extract code, message, and severity whether reasonItem is a string or an object
+              const code = typeof reasonItem === 'string'
+                ? reasonItem
+                : (reasonItem?.code || reasonItem?.reason || `FLAG_${idx + 1}`);
+
+              const customMessage = typeof reasonItem === 'object' && reasonItem?.message
+                ? reasonItem.message
+                : null;
+
+              const severity = typeof reasonItem === 'object' && reasonItem?.severity
+                ? reasonItem.severity
+                : 'Warning';
+
+              const info = REASON_EXPLANATIONS[code] || {
+                title: typeof code === 'string' ? code.replace(/_/g, ' ') : 'Attention Required',
+                detail: customMessage || 'Standard flock evaluation threshold triggered.',
                 action: 'Review routine logs and flock conditions.'
               };
 
               return (
                 <div
-                  key={reasonCode}
+                  key={typeof code === 'string' ? `${code}-${idx}` : idx}
                   className="p-3.5 rounded-2xl bg-slate-950/70 border border-amber-500/30 text-xs space-y-1.5"
                 >
                   <div className="flex items-center justify-between">
@@ -212,11 +225,11 @@ export default function StatusBanner({ batchId, initialEvaluation = null, weathe
                       {info.title}
                     </span>
                     <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                      {reasonCode}
+                      {typeof code === 'string' ? code : severity}
                     </span>
                   </div>
                   <p className="text-slate-300 text-[11px] leading-relaxed">
-                    {info.detail}
+                    {customMessage || info.detail}
                   </p>
                   <p className="text-[11px] text-emerald-400 font-medium">
                     ⚡ <strong>Recommended Action:</strong> {info.action}
@@ -239,14 +252,18 @@ export default function StatusBanner({ batchId, initialEvaluation = null, weathe
               <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-rose-300">{alert.message}</span>
+                  <span className="font-bold text-rose-300">
+                    {typeof alert === 'string' ? alert : (alert?.message || alert?.title || 'Weather Advisory')}
+                  </span>
                   <span className="text-[9px] px-2 py-0.5 rounded font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    {alert.severity || 'Warning'}
+                    {alert?.severity || 'Warning'}
                   </span>
                 </div>
-                <p className="text-slate-300 text-[11px] mt-1">
-                  💡 <strong>Advisory:</strong> {alert.advice}
-                </p>
+                {(alert?.advice || alert?.description) && (
+                  <p className="text-slate-300 text-[11px] mt-1">
+                    💡 <strong>Advisory:</strong> {alert.advice || alert.description}
+                  </p>
+                )}
               </div>
             </div>
           ))}

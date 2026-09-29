@@ -66,30 +66,41 @@ export default function DiseaseDetection({ onPredictionSaved, farmId }) {
     formData.append('image', file);
     if (farmId) formData.append('farmId', farmId);
 
+    // Abort if server doesn't respond within 20 seconds
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
     try {
       const response = await fetch('/api/predict/disease', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error('Unable to analyze the image. Please try again.');
+        throw new Error(data?.message || data?.error || 'Unable to analyze the image. Please try again.');
       }
 
       if (data.success === false) {
         if (data.error === 'LOW_CONFIDENCE') {
           setResult(data);
         } else {
-          setError(data.message || 'Unable to analyze the image. Please try again.');
+          setError(data.message || data.error || 'Unable to analyze the image. Please try again.');
         }
       } else {
         setResult(data);
         if (onPredictionSaved) onPredictionSaved();
       }
     } catch (err) {
-      setError('Unable to analyze the image. Please try again.');
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        setError('The request is taking too long. Please check your connection and try again.');
+      } else {
+        setError(err.message || 'Unable to analyze the image. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -179,8 +190,8 @@ export default function DiseaseDetection({ onPredictionSaved, farmId }) {
               <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center space-x-3">
                 <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
                 <div className="space-y-0.5">
-                  <p className="font-semibold">Unable to analyze the image.</p>
-                  <p className="text-xs text-rose-300/80">Please try again.</p>
+                  <p className="font-semibold">{error}</p>
+                  <p className="text-xs text-rose-300/80">Please check your image or try another photo.</p>
                 </div>
               </div>
             )}

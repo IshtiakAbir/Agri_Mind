@@ -22,7 +22,8 @@ import {
   Sparkles,
   X,
   Send,
-  SkipForward
+  SkipForward,
+  RotateCw
 } from 'lucide-react';
 import { BatchContext } from '../context/BatchContext';
 
@@ -53,14 +54,51 @@ export default function MilestoneTimeline({ tasks = [], batchId }) {
   const [processing, setProcessing] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
-  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+  const [quickCompletingId, setQuickCompletingId] = useState(null);
+
+  const getLocalDateStr = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getLocalDateStr(new Date());
+  const nextWeek = getLocalDateStr(new Date(Date.now() + 7 * 86400000));
+
+  const getDueIso = (d) => {
+    if (!d) return '';
+    try {
+      const dateObj = d instanceof Date ? d : new Date(d);
+      return getLocalDateStr(dateObj);
+    } catch {
+      return '';
+    }
+  };
 
   // Group tasks
-  const overdue = tasks.filter(t => t.status === 'Overdue' || (t.status === 'Pending' && t.dueDate && t.dueDate.split('T')[0] < today));
-  const todayTasks = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Overdue' && t.dueDate && t.dueDate.split('T')[0] === today);
-  const upcoming = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Overdue' && t.dueDate && t.dueDate.split('T')[0] > today && t.dueDate.split('T')[0] <= nextWeek);
+  const overdue = tasks.filter(t => t.status === 'Overdue' || (t.status === 'Pending' && t.dueDate && getDueIso(t.dueDate) < today));
+  const todayTasks = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Overdue' && t.dueDate && getDueIso(t.dueDate) === today);
+  const upcoming = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Overdue' && t.dueDate && getDueIso(t.dueDate) > today && getDueIso(t.dueDate) <= nextWeek);
   const completed = tasks.filter(t => t.status === 'Completed');
+
+  const handleQuickComplete = async (e, task) => {
+    e.stopPropagation();
+    if (!batchId || !task?._id || quickCompletingId) return;
+    setQuickCompletingId(task._id);
+    try {
+      await updateBatchTask(batchId, task._id, {
+        status: 'Completed',
+        completionData: {
+          notes: 'Marked complete from milestones timeline'
+        }
+      });
+    } catch (err) {
+      console.error('Error completing task:', err);
+    } finally {
+      setQuickCompletingId(null);
+    }
+  };
 
   const handleAction = async (taskId, status, category = '') => {
     if (!batchId || !taskId) return;
@@ -142,10 +180,16 @@ export default function MilestoneTimeline({ tasks = [], batchId }) {
                 <div className="flex items-center gap-2 shrink-0">
                   {task.status !== 'Completed' && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setActionTaskId(task._id); setActionMode('complete'); }}
-                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold transition-colors"
+                      onClick={(e) => handleQuickComplete(e, task)}
+                      disabled={quickCompletingId === task._id}
+                      title="Mark as completed"
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold transition-colors flex items-center gap-1 disabled:opacity-50"
                     >
-                      ✓ Done
+                      {quickCompletingId === task._id ? (
+                        <RotateCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        '✓ Done'
+                      )}
                     </button>
                   )}
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}

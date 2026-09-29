@@ -36,6 +36,7 @@ import MilestoneTimeline from './MilestoneTimeline';
 import DailyCheckInCard from './DailyCheckInCard';
 import BatchWizard from './BatchWizard';
 import BatchCloseModal from './BatchCloseModal';
+import ErrorBoundary from './ErrorBoundary';
 
 export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   const {
@@ -90,7 +91,10 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   }
 
   const currentBatch = activeBatch || batches[0];
-  const evaluation = dashboardData?.evaluation || { status: 'Looks Good', reasons: [] };
+  const evaluation = dashboardData?.evaluation || {
+    status: dashboardData?.status || 'Looks Good',
+    reasons: dashboardData?.reasons || []
+  };
   const weather = dashboardData?.weather || null;
   const metrics = dashboardData?.metrics || {};
   const stage = dashboardData?.stage || {};
@@ -157,103 +161,116 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
       </div>
 
       {/* ─── Real-time Status Banner ─── */}
-      <StatusBanner
-        batchId={currentBatch?._id}
-        initialEvaluation={evaluation}
-        weatherAlerts={alerts}
-      />
+      <ErrorBoundary fallbackTitle="Status Banner Unavailable">
+        <StatusBanner
+          batchId={currentBatch?._id}
+          initialEvaluation={evaluation}
+          weatherAlerts={alerts}
+        />
+      </ErrorBoundary>
 
       {/* ─── Row 1: Age & Environment Card + Rolling Profit Forecast Card ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <AgeEnvironmentCard
-            batch={currentBatch}
-            dashboardData={dashboardData}
-            weather={weather}
-          />
+          <ErrorBoundary fallbackTitle="Flock Environment Card Unavailable">
+            <AgeEnvironmentCard
+              batch={currentBatch}
+              dashboardData={dashboardData}
+              weather={weather}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Rolling Profit Forecast Card */}
-        <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4">
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <TrendingUp className="w-4 h-4" />
+        <ErrorBoundary fallbackTitle="Profit Forecast Unavailable">
+          <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 flex flex-col justify-between space-y-4 h-full">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-slate-100 flex items-center gap-1.5">
+                      Profit Forecast
+                      {latestForecast?.isStale && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-normal">
+                          Stale
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[10px] text-slate-400">End-of-cycle ML estimate</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs sm:text-sm text-slate-100 flex items-center gap-1.5">
-                    Profit Forecast
-                    {latestForecast?.isStale && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-normal">
-                        Stale
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-[10px] text-slate-400">End-of-cycle ML estimate</p>
-                </div>
+                <Sparkles className="w-4 h-4 text-emerald-400 opacity-60" />
               </div>
-              <Sparkles className="w-4 h-4 text-emerald-400 opacity-60" />
+
+              <div className="mt-5 space-y-2">
+                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
+                  {latestForecast?.predictedProfit != null
+                    ? `৳ ${Math.round(latestForecast.predictedProfit).toLocaleString()}`
+                    : `৳ ${Math.round(((currentBatch?.initialChickens || 1000) * (currentBatch?.targetHarvestWeightKg || 1.8) * (currentBatch?.expectedSalePricePerKg || 165)) * 0.22).toLocaleString()}`}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Projected Range:{' '}
+                  <span className="text-slate-200 font-semibold">
+                    {latestForecast?.low != null && latestForecast?.high != null
+                      ? `৳ ${Math.round(latestForecast.low).toLocaleString()} – ৳ ${Math.round(latestForecast.high).toLocaleString()}`
+                      : '±15% based on standard feed conversion'}
+                  </span>
+                </p>
+              </div>
             </div>
 
-            <div className="mt-5 space-y-2">
-              <div className="text-2xl sm:text-3xl font-extrabold text-emerald-400">
-                {latestForecast?.predictedProfit != null
-                  ? `৳ ${Math.round(latestForecast.predictedProfit).toLocaleString()}`
-                  : `৳ ${Math.round(((currentBatch?.initialChickens || 1000) * (currentBatch?.targetHarvestWeightKg || 1.8) * (currentBatch?.expectedSalePricePerKg || 165)) * 0.22).toLocaleString()}`}
+            <div className="pt-3 border-t border-slate-800/80 space-y-2 text-[11px]">
+              <div className="flex justify-between text-slate-400">
+                <span>Expected Bird Price</span>
+                <span className="text-slate-200 font-medium">৳{currentBatch?.expectedSalePricePerKg || 165}/kg</span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Projected Range:{' '}
-                <span className="text-slate-200 font-semibold">
-                  {latestForecast?.low != null && latestForecast?.high != null
-                    ? `৳ ${Math.round(latestForecast.low).toLocaleString()} – ৳ ${Math.round(latestForecast.high).toLocaleString()}`
-                    : '±15% based on standard feed conversion'}
-                </span>
-              </p>
+              <div className="flex justify-between text-slate-400">
+                <span>Feed Cost Rate</span>
+                <span className="text-slate-200 font-medium">৳{currentBatch?.feedCostPerKg || 65}/kg</span>
+              </div>
+              {latestForecast?.computedAt && (
+                <div className="flex justify-between text-[10px] text-slate-500 pt-1">
+                  <span>Updated</span>
+                  <span>{new Date(latestForecast.computedAt).toLocaleDateString()}</span>
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="pt-3 border-t border-slate-800/80 space-y-2 text-[11px]">
-            <div className="flex justify-between text-slate-400">
-              <span>Expected Bird Price</span>
-              <span className="text-slate-200 font-medium">৳{currentBatch?.expectedSalePricePerKg || 165}/kg</span>
-            </div>
-            <div className="flex justify-between text-slate-400">
-              <span>Feed Cost Rate</span>
-              <span className="text-slate-200 font-medium">৳{currentBatch?.feedCostPerKg || 65}/kg</span>
-            </div>
-            {latestForecast?.computedAt && (
-              <div className="flex justify-between text-[10px] text-slate-500 pt-1">
-                <span>Updated</span>
-                <span>{new Date(latestForecast.computedAt).toLocaleDateString()}</span>
-              </div>
-            )}
-          </div>
-        </div>
+        </ErrorBoundary>
       </div>
 
       {/* ─── Row 2: Daily Check-In Workflow & Guidance Box ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <DailyCheckInCard
-          batch={currentBatch}
-          onLogSubmitted={() => {
-            refreshActiveBatch();
-          }}
-        />
+        <ErrorBoundary fallbackTitle="Daily Check-In Card Unavailable">
+          <DailyCheckInCard
+            batch={currentBatch}
+            todayLog={dashboardData?.todayLog}
+            onLogSubmitted={() => {
+              refreshActiveBatch();
+            }}
+          />
+        </ErrorBoundary>
 
-        <GuidanceBox
-          stage={stage}
-          batch={currentBatch}
-          tasksDue={tasksDue}
-        />
+        <ErrorBoundary fallbackTitle="Lifecycle Guidance Unavailable">
+          <GuidanceBox
+            stage={stage}
+            batch={currentBatch}
+            tasksDue={tasksDue}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* ─── Row 3: Milestone Timeline ─── */}
       <div>
-        <MilestoneTimeline
-          tasks={tasksDue}
-          batchId={currentBatch?._id}
-        />
+        <ErrorBoundary fallbackTitle="Milestone Timeline Unavailable">
+          <MilestoneTimeline
+            tasks={tasksDue}
+            batchId={currentBatch?._id}
+          />
+        </ErrorBoundary>
       </div>
 
       {/* ─── Modals ─── */}

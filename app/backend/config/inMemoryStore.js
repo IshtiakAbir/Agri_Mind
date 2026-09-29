@@ -96,11 +96,20 @@ class InMemoryStore {
       _id: 'log_' + yesterdayStr,
       batchId: DEMO_BATCH_ID,
       logDay: yesterdayStr,
+      morning: {
+        feedCompleted: true,
+        waterRefilled: true,
+        completedAt: now.minus({ days: 1 }).set({ hour: 8, minute: 30 }).toJSDate(),
+      },
       morningRoutine: {
         completed: true,
         completedAt: now.minus({ days: 1 }).set({ hour: 8, minute: 30 }).toJSDate(),
         feedCompleted: true,
         waterRefilled: true,
+      },
+      evening: {
+        feedCompleted: true,
+        completedAt: now.minus({ days: 1 }).set({ hour: 18, minute: 45 }).toJSDate(),
       },
       eveningRoutine: {
         completed: true,
@@ -108,6 +117,8 @@ class InMemoryStore {
         feedWeightKg: 125,
         mortalityCount: 1,
       },
+      mortalityCount: 1,
+      feedAmountKg: 125,
       symptoms: [],
       notes: 'Flock active and alert.',
       toObject() { return { ...this }; }
@@ -118,17 +129,28 @@ class InMemoryStore {
       _id: 'log_' + todayStr,
       batchId: DEMO_BATCH_ID,
       logDay: todayStr,
+      morning: {
+        feedCompleted: true,
+        waterRefilled: true,
+        completedAt: now.set({ hour: 8, minute: 15 }).toJSDate(),
+      },
       morningRoutine: {
         completed: true,
         completedAt: now.set({ hour: 8, minute: 15 }).toJSDate(),
         feedCompleted: true,
         waterRefilled: true,
       },
+      evening: {
+        feedCompleted: false,
+        completedAt: null,
+      },
       eveningRoutine: {
         completed: false,
         feedWeightKg: 0,
         mortalityCount: 0,
       },
+      mortalityCount: 0,
+      feedAmountKg: 0,
       symptoms: [],
       notes: 'Morning ration fed on schedule.',
       toObject() { return { ...this }; }

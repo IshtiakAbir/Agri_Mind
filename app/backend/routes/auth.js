@@ -41,6 +41,7 @@ const seedUser = (id, name, mobile, role) => {
 seedUser(DEMO_USER_ID, 'Mohammad Rahman (Demo)', '01712345678', 'farmer');
 seedUser('65fc20a1b900000000000000', 'Demo Farmer (Guest)', '01700000000', 'farmer');
 seedUser('65fc20a1b900000000000009', 'Field Officer (Demo Staff)', '01800000000', 'employee');
+seedUser('65fc20a1b900000000000099', 'Platform Admin (Demo)', '01999999999', 'admin');
 
 // Helper to generate JWT token
 const generateToken = (user) => {
@@ -143,10 +144,16 @@ router.post('/login', async (req, res) => {
       try {
         const user = await User.findOne({ mobile });
         if (user) {
+          if (user.suspendedAt) {
+            return res.status(403).json({ success: false, message: 'Account is suspended. Please contact platform support.' });
+          }
           const isMatch = await user.matchPassword(password);
           if (!isMatch) {
             return res.status(400).json({ success: false, message: 'Invalid mobile number or password.' });
           }
+          // Track last login
+          user.lastLoginAt = new Date();
+          await user.save();
           const token = generateToken(user);
           return res.json({
             success: true,
@@ -162,10 +169,14 @@ router.post('/login', async (req, res) => {
     // In-memory fallback check
     const mockUser = inMemoryUsers.get(mobile);
     if (mockUser) {
+      if (mockUser.suspendedAt) {
+        return res.status(403).json({ success: false, message: 'Account is suspended. Please contact platform support.' });
+      }
       const isMatch = await bcrypt.compare(password, mockUser.password);
       if (!isMatch) {
         return res.status(400).json({ success: false, message: 'Invalid mobile number or password.' });
       }
+      mockUser.lastLoginAt = new Date();
       const token = generateToken(mockUser);
       return res.json({
         success: true,
@@ -227,5 +238,7 @@ router.post('/guest', (req, res) => {
     user: guestUser
   });
 });
+
+router.inMemoryUsers = inMemoryUsers;
 
 module.exports = router;

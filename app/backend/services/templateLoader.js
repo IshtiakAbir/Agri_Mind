@@ -216,6 +216,69 @@ function getAllTemplates() {
   return Object.fromEntries(templatesCache.entries());
 }
 
+// In-memory draft templates store
+const draftTemplates = new Map();
+
+function getDraftTemplate(chickenType) {
+  return draftTemplates.get(chickenType) || null;
+}
+
+function saveDraftTemplate(chickenType, draftData) {
+  const existing = getTemplate(chickenType) || {};
+  const draft = {
+    ...existing,
+    ...draftData,
+    chickenType,
+    isDraft: true,
+    savedAt: new Date().toISOString()
+  };
+  draftTemplates.set(chickenType, draft);
+  return draft;
+}
+
+function publishTemplate(chickenType, incomingData = null) {
+  const source = (incomingData && incomingData.stages)
+    ? incomingData
+    : (draftTemplates.get(chickenType) || getTemplate(chickenType));
+
+  if (!source) {
+    throw new Error(`No template found for breed: ${chickenType}`);
+  }
+
+  // Calculate new version
+  const current = templatesCache.get(chickenType);
+  const currentVersion = current?.version || '1.0.0';
+  const parts = currentVersion.split('.').map(Number);
+  const newVersion = `${parts[0] || 1}.${(parts[1] || 0) + 1}.0`;
+
+  // Filter clean object according to schema allowed properties
+  const cleanTemplate = {
+    chickenType: source.chickenType || chickenType,
+    version: (incomingData && incomingData.version) ? incomingData.version : newVersion,
+    reviewedBy: source.reviewedBy || null,
+    cycleLengthDays: Number(source.cycleLengthDays),
+    disclaimer: source.disclaimer || 'Veterinary advisory guidance.',
+    stages: source.stages
+  };
+
+  // Validate strictly against schema
+  validateTemplate(cleanTemplate, `Publishing ${chickenType}`);
+
+  templatesCache.set(chickenType, cleanTemplate);
+  draftTemplates.delete(chickenType);
+
+  // Try writing to file if possible
+  try {
+    const filename = `${chickenType}.json`;
+    const filePath = path.join(TEMPLATES_DIR, filename);
+    fs.writeFileSync(filePath, JSON.stringify(cleanTemplate, null, 2), 'utf8');
+  } catch (fsErr) {
+    console.warn(`Could not persist template file for ${chickenType}:`, fsErr.message);
+  }
+
+  return cleanTemplate;
+}
+
 // Automatically load templates on first module require
 try {
   loadTemplates();
@@ -231,4 +294,8 @@ module.exports = {
   getStageForAge,
   getAllTemplates,
   validateTemplate,
+  getDraftTemplate,
+  saveDraftTemplate,
+  publishTemplate,
+  draftTemplates
 };

@@ -147,12 +147,13 @@ const INITIAL_PRODUCTS = [
   {
     _id: 'prod_farm_1',
     name: 'Live Healthy Broiler Chickens (Avg 2.2 kg weight)',
-    category: 'Farmer Products',
+    category: 'Farm Produce',
     price: 195,
     unit: 'per kg',
     sellerName: 'Mohammad Rahman (Green Valley Farm)',
     sellerPhone: '+880 1712-345678',
     sellerLocation: 'Gazipur, Bangladesh',
+    city: 'Gazipur, Bangladesh',
     description: 'Batch of 1,500 fully grown healthy broilers ready for immediate wholesale or local market supply. Complete vaccination record.',
     image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=600&q=80',
     stock: 1500,
@@ -163,17 +164,35 @@ const INITIAL_PRODUCTS = [
   {
     _id: 'prod_farm_2',
     name: 'Fresh Organic Brown Layer Eggs (Carton of 30)',
-    category: 'Farmer Products',
+    category: 'Farm Produce',
     price: 380,
     unit: '30 pcs crate',
     sellerName: 'Tariqul Anam (Sonali Heritage)',
     sellerPhone: '+880 1911-556677',
     sellerLocation: 'Bogura, Bangladesh',
+    city: 'Bogura, Bangladesh',
     description: 'Farm-fresh, grade-A brown eggs collected daily from free-run layer hens. Rich in Omega-3 and calcium.',
     image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80',
     stock: 80,
     rating: 4.9,
     badge: 'Farm Fresh',
+    isFarmerListing: true
+  },
+  {
+    _id: 'prod_farm_3',
+    name: 'Dry Organic Poultry Litter Compost (50 kg Bag)',
+    category: 'Farm Produce',
+    price: 450,
+    unit: '50 kg sack',
+    sellerName: 'Bhuiyan Agro Farm',
+    sellerPhone: '+880 1823-456789',
+    sellerLocation: 'Cumilla, Bangladesh',
+    city: 'Cumilla, Bangladesh',
+    description: 'Aged, odorless, high-nitrogen poultry litter compost ideal for vegetable, fruit, and crop fertilization.',
+    image: 'https://images.unsplash.com/photo-1592417817098-8f3d6ef23a48?auto=format&fit=crop&w=600&q=80',
+    stock: 200,
+    rating: 4.8,
+    badge: 'Organic Farm',
     isFarmerListing: true
   }
 ];
@@ -229,19 +248,65 @@ router.get('/', (req, res) => {
   let products = [...inMemoryProducts];
 
   if (category && category !== 'All') {
-    products = products.filter(p => p.category.toLowerCase() === category.toLowerCase());
+    const target = category.toLowerCase().trim();
+    products = products.filter(p => {
+      const cat = (p.category || '').toLowerCase().trim();
+      if (cat === target) return true;
+      if (
+        target === 'produce' ||
+        target === 'farm produce' ||
+        target === 'farmer products' ||
+        target === 'farmer product' ||
+        target === 'farmer' ||
+        target.includes('produce') ||
+        target.includes('farm')
+      ) {
+        return cat.includes('farmer') || cat.includes('produce') || cat.includes('farm');
+      }
+      if (target === 'equipment' || target === 'instrument' || target === 'instruments') {
+        return cat.includes('instrument') || cat.includes('equipment');
+      }
+      if (target === 'medicine' || target === 'medicines') {
+        return cat.includes('med');
+      }
+      if (target === 'vaccine' || target === 'vaccines') {
+        return cat.includes('vac');
+      }
+      if (target === 'feed') {
+        return cat.includes('feed');
+      }
+      return cat.includes(target) || target.includes(cat);
+    });
   }
 
   if (search) {
     const q = search.toLowerCase();
     products = products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q) ||
-      p.sellerLocation.toLowerCase().includes(q)
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      (p.sellerLocation && p.sellerLocation.toLowerCase().includes(q)) ||
+      (p.city && p.city.toLowerCase().includes(q))
     );
   }
 
-  res.json({ success: true, count: products.length, products });
+  const thresholds = require('../config/thresholds');
+  if (req.query.lowStock === 'true') {
+    const thresh = thresholds.lowStockThreshold || 10;
+    products = products.filter(p => (parseInt(p.stock) || 0) <= thresh);
+  }
+
+  // Public users only see non-hidden products
+  if (req.query.includeHidden !== 'true') {
+    products = products.filter(p => p.status !== 'hidden');
+  }
+
+  const formattedProducts = products.map(p => ({
+    ...p,
+    city: p.city || p.sellerLocation || 'Dhaka',
+    sellerLocation: p.sellerLocation || p.city || 'Dhaka'
+  }));
+
+  res.json({ success: true, count: formattedProducts.length, products: formattedProducts });
 });
 
 // @route   POST /api/products
@@ -257,6 +322,7 @@ router.post('/', (req, res) => {
       sellerName,
       sellerPhone,
       sellerLocation,
+      city,
       description,
       image,
       stock
@@ -274,23 +340,37 @@ router.post('/', (req, res) => {
       'Medicines': 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=600&q=80',
       'Vaccines': 'https://images.unsplash.com/photo-1583912267670-6575ad472688?auto=format&fit=crop&w=600&q=80',
       'Feed': 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=600&q=80',
+      'Farm Produce': 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80',
       'Farmer Products': 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80'
     };
+
+    const isCustomImage = typeof image === 'string' && (
+      image.startsWith('data:image/') ||
+      image.startsWith('http://') ||
+      image.startsWith('https://') ||
+      image.startsWith('/uploads/') ||
+      image.startsWith('blob:')
+    );
+
+    const normCategory = (category && (category.toLowerCase().includes('produce') || category.toLowerCase().includes('farm')))
+      ? 'Farm Produce'
+      : (category || 'Farm Produce');
 
     const newProduct = {
       _id: 'prod_' + Date.now(),
       name: name.trim(),
-      category: category || 'Farmer Products',
+      category: normCategory,
       price: parseFloat(price),
       unit: unit || 'item',
       sellerName: sellerName.trim(),
       sellerPhone: String(sellerPhone).trim(),
-      sellerLocation: (sellerLocation || 'Bangladesh').trim(),
+      sellerLocation: (sellerLocation || city || 'Bangladesh').trim(),
+      city: (city || sellerLocation || 'Bangladesh').trim(),
       description: description ? description.trim() : 'Fresh supply listed directly by verified farmer.',
-      image: image && image.startsWith('http') ? image : (defaultImages[category] || defaultImages['Farmer Products']),
+      image: isCustomImage ? image : (defaultImages[normCategory] || defaultImages['Farm Produce'] || defaultImages['Farmer Products']),
       stock: parseInt(stock) || 10,
       rating: 5.0,
-      badge: 'Farmer Listing',
+      badge: 'Direct from Farmer',
       isFarmerListing: true,
       createdAt: new Date().toISOString()
     };
@@ -307,5 +387,87 @@ router.post('/', (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to list product.' });
   }
 });
+
+// Category list
+let productCategories = ['Instruments', 'Medicines', 'Vaccines', 'Feed', 'Farm Produce'];
+
+// @route   GET /api/products/categories
+router.get('/categories', (req, res) => {
+  res.json({ success: true, categories: productCategories });
+});
+
+// @route   POST /api/products/categories
+router.post('/categories', (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ success: false, message: 'Category name is required.' });
+  }
+  const trimmed = name.trim();
+  if (!productCategories.includes(trimmed)) {
+    productCategories.push(trimmed);
+  }
+  res.status(201).json({ success: true, categories: productCategories });
+});
+
+// @route   PUT /api/products/categories/:oldName
+router.put('/categories/:oldName', (req, res) => {
+  const { newName } = req.body;
+  const oldName = decodeURIComponent(req.params.oldName);
+  if (!newName || !newName.trim()) {
+    return res.status(400).json({ success: false, message: 'New category name is required.' });
+  }
+  const trimmed = newName.trim();
+  const idx = productCategories.indexOf(oldName);
+  if (idx !== -1) {
+    productCategories[idx] = trimmed;
+    // Update products with this category
+    for (const p of inMemoryProducts) {
+      if (p.category === oldName) p.category = trimmed;
+    }
+  }
+  res.json({ success: true, categories: productCategories });
+});
+
+// @route   DELETE /api/products/categories/:name
+router.delete('/categories/:name', (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  productCategories = productCategories.filter(c => c !== name);
+  res.json({ success: true, categories: productCategories });
+});
+
+// @route   PUT /api/products/:id
+router.put('/:id', (req, res) => {
+  const idx = inMemoryProducts.findIndex(p => p._id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found.' });
+  }
+  const existing = inMemoryProducts[idx];
+  const updated = {
+    ...existing,
+    ...req.body,
+    _id: existing._id,
+    updatedAt: new Date().toISOString()
+  };
+  if (req.body.price !== undefined) updated.price = parseFloat(req.body.price);
+  if (req.body.stock !== undefined) updated.stock = parseInt(req.body.stock);
+  if (req.body.treatmentTags && Array.isArray(req.body.treatmentTags)) {
+    updated.treatmentTags = req.body.treatmentTags;
+  }
+  inMemoryProducts[idx] = updated;
+  res.json({ success: true, product: updated, message: 'Product updated successfully.' });
+});
+
+// @route   DELETE /api/products/:id
+router.delete('/:id', (req, res) => {
+  const idx = inMemoryProducts.findIndex(p => p._id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Product not found.' });
+  }
+  const deleted = inMemoryProducts.splice(idx, 1)[0];
+  res.json({ success: true, product: deleted, message: 'Product deleted successfully.' });
+});
+
+router.productCategories = productCategories;
+router.inMemoryProducts = inMemoryProducts;
 
 module.exports = router;

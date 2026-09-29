@@ -2,12 +2,151 @@ import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag, Search, Plus, Filter, Phone, MapPin, Tag,
   Star, CheckCircle2, AlertCircle, RefreshCw, Warehouse, Sparkles,
-  ArrowRight, ShieldCheck, Truck, Package, X
+  ArrowRight, ShieldCheck, Truck, Package, X, Camera, Upload, Image as ImageIcon
 } from 'lucide-react';
 
-const CATEGORIES = ['All', 'Instruments', 'Medicines', 'Vaccines', 'Feed', 'Farmer Products'];
+const CATEGORIES = ['All', 'Farm Produce', 'Feed', 'Medicines', 'Vaccines', 'Instruments'];
 
-export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFarm }) {
+const FALLBACK_PRODUCTS = [
+  {
+    _id: 'prod_inst_1',
+    name: 'Automatic Poultry Nipple Drinker Kit (10 Pack)',
+    category: 'Instruments',
+    price: 1200,
+    unit: '10 pcs set',
+    sellerName: 'AgriTech Poultry Equipments Ltd.',
+    sellerPhone: '+880 1812-334455',
+    sellerLocation: 'Gazipur, Dhaka',
+    city: 'Gazipur, Dhaka',
+    description: 'High-grade 360-degree stainless steel nipple drinkers with leak-proof rubber gaskets. Reduces water contamination by 90%.',
+    image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=600&q=80',
+    stock: 45,
+    rating: 4.8,
+    badge: 'Best Seller',
+    isFarmerListing: false
+  },
+  {
+    _id: 'prod_med_1',
+    name: 'Amprolium 20% Water Soluble Powder (Coccidiosis Treatment)',
+    category: 'Medicines',
+    price: 650,
+    unit: '100g sachet',
+    sellerName: 'Apex Vet Pharma Ltd.',
+    sellerPhone: '+880 1715-445566',
+    sellerLocation: 'Dhaka',
+    city: 'Dhaka',
+    description: 'Targeted anti-coccidial treatment effective against Eimeria tenella and bloody fecal droppings in broilers and layers.',
+    image: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=600&q=80',
+    stock: 120,
+    rating: 4.9,
+    badge: 'Veterinary Choice',
+    isFarmerListing: false
+  },
+  {
+    _id: 'prod_med_2',
+    name: 'Oxytetracycline 50% Broad-Spectrum Antibiotic',
+    category: 'Medicines',
+    price: 820,
+    unit: '100g jar',
+    sellerName: 'Square AgroVet Health',
+    sellerPhone: '+880 1819-667788',
+    sellerLocation: 'Chattogram',
+    city: 'Chattogram',
+    description: 'First-line antimicrobial for Fowl Cholera, Salmonella, and secondary bacterial respiratory infections.',
+    image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
+    stock: 85,
+    rating: 4.8,
+    badge: 'Top Rated',
+    isFarmerListing: false
+  },
+  {
+    _id: 'prod_vac_1',
+    name: 'Newcastle Disease Vaccine (ND Lasota Live Strain - 1000 Doses)',
+    category: 'Vaccines',
+    price: 350,
+    unit: '1000 dose vial',
+    sellerName: 'Livestock Bio-Laboratories',
+    sellerPhone: '+880 1722-114477',
+    sellerLocation: 'Gazipur',
+    city: 'Gazipur',
+    description: 'Live freeze-dried vaccine for active immunization against Ranikhet / Newcastle disease via eye-drop or drinking water.',
+    image: 'https://images.unsplash.com/photo-1583912267670-6575ad472688?auto=format&fit=crop&w=600&q=80',
+    stock: 200,
+    rating: 4.95,
+    badge: 'Must Have',
+    isFarmerListing: false
+  },
+  {
+    _id: 'prod_feed_1',
+    name: 'Broiler Starter Crumbles 22% CP (50 kg Bag)',
+    category: 'Feed',
+    price: 3250,
+    unit: '50 kg sack',
+    sellerName: 'Kazi Farms Feed Depot',
+    sellerPhone: '+880 1811-990011',
+    sellerLocation: 'Dhaka / Gazipur',
+    city: 'Dhaka / Gazipur',
+    description: 'High-protein balanced starter feed fortified with amino acids, phytase, and essential multivitamins.',
+    image: 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=600&q=80',
+    stock: 350,
+    rating: 4.85,
+    badge: 'Fresh Stock',
+    isFarmerListing: false
+  },
+  {
+    _id: 'prod_farm_1',
+    name: 'Live Healthy Broiler Chickens (Avg 2.2 kg weight)',
+    category: 'Farm Produce',
+    price: 195,
+    unit: 'per kg',
+    sellerName: 'Mohammad Rahman (Green Valley Farm)',
+    sellerPhone: '+880 1712-345678',
+    sellerLocation: 'Gazipur, Bangladesh',
+    city: 'Gazipur, Bangladesh',
+    description: 'Batch of fully grown healthy broilers ready for immediate wholesale or local market supply.',
+    image: 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?auto=format&fit=crop&w=600&q=80',
+    stock: 1500,
+    rating: 5.0,
+    badge: 'Direct from Farmer',
+    isFarmerListing: true
+  },
+  {
+    _id: 'prod_farm_2',
+    name: 'Fresh Organic Brown Layer Eggs (Carton of 30)',
+    category: 'Farm Produce',
+    price: 380,
+    unit: '30 pcs crate',
+    sellerName: 'Tariqul Anam (Sonali Heritage)',
+    sellerPhone: '+880 1911-556677',
+    sellerLocation: 'Bogura, Bangladesh',
+    city: 'Bogura, Bangladesh',
+    description: 'Farm-fresh, grade-A brown eggs collected daily from free-run layer hens. Rich in Omega-3 and calcium.',
+    image: 'https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?auto=format&fit=crop&w=600&q=80',
+    stock: 80,
+    rating: 4.9,
+    badge: 'Farm Fresh',
+    isFarmerListing: true
+  },
+  {
+    _id: 'prod_farm_3',
+    name: 'Dry Organic Poultry Litter Compost (50 kg Bag)',
+    category: 'Farm Produce',
+    price: 450,
+    unit: '50 kg sack',
+    sellerName: 'Bhuiyan Agro Farm',
+    sellerPhone: '+880 1823-456789',
+    sellerLocation: 'Cumilla, Bangladesh',
+    city: 'Cumilla, Bangladesh',
+    description: 'Aged, odorless, high-nitrogen poultry litter compost ideal for vegetable, fruit, and crop fertilization.',
+    image: 'https://images.unsplash.com/photo-1592417817098-8f3d6ef23a48?auto=format&fit=crop&w=600&q=80',
+    stock: 200,
+    rating: 4.8,
+    badge: 'Organic Farm',
+    isFarmerListing: true
+  }
+];
+
+export default function Marketplace({ activeFarm, activeFarmId, setActiveTab, onOpenRegisterFarm }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('All');
@@ -17,11 +156,12 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   // New Listing Form State
   const [sellForm, setSellForm] = useState({
     name: '',
-    category: 'Farmer Products',
+    category: 'Farm Produce',
     price: '',
     unit: 'per kg',
     sellerName: activeFarm?.ownerName || '',
@@ -39,8 +179,81 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
         sellerPhone: prev.sellerPhone || activeFarm.phoneNumber || '',
         city: prev.city || activeFarm.city || 'Dhaka'
       }));
+    } else if (activeFarmId) {
+      fetch('/api/farms')
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.farms) {
+            const found = d.farms.find(f => f._id === activeFarmId);
+            if (found) {
+              setSellForm(prev => ({
+                ...prev,
+                sellerName: prev.sellerName || found.ownerName || '',
+                sellerPhone: prev.sellerPhone || found.phoneNumber || '',
+                city: prev.city || found.city || 'Dhaka'
+              }));
+            }
+          }
+        })
+        .catch(() => {});
     }
-  }, [activeFarm]);
+  }, [activeFarm, activeFarmId]);
+
+  const applyFallbackProducts = (cat, q) => {
+    let list = [...FALLBACK_PRODUCTS];
+    if (cat && cat !== 'All') {
+      const c = cat.toLowerCase();
+      list = list.filter(p => {
+        const pc = (p.category || '').toLowerCase();
+        if (c.includes('farm') || c.includes('produce')) {
+          return pc.includes('farm') || pc.includes('produce');
+        }
+        if (c.includes('med') && pc.includes('med')) return true;
+        if (c.includes('vac') && pc.includes('vac')) return true;
+        if (c.includes('inst') && pc.includes('inst')) return true;
+        if (c.includes('feed') && pc.includes('feed')) return true;
+        return pc === c;
+      });
+    }
+    if (q && q.trim()) {
+      const s = q.toLowerCase();
+      list = list.filter(p =>
+        p.name.toLowerCase().includes(s) ||
+        p.description.toLowerCase().includes(s) ||
+        (p.city && p.city.toLowerCase().includes(s))
+      );
+    }
+    setProducts(list);
+  };
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (PNG, JPG, JPEG, WEBP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image file size must be less than 5MB.');
+      return;
+    }
+
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target.result;
+      setImagePreview(dataUrl);
+      setSellForm(prev => ({ ...prev, image: dataUrl }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setSellForm(prev => ({ ...prev, image: '' }));
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -53,11 +266,13 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
 
       const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
-        setProducts(data.products || []);
+      if (data.success && Array.isArray(data.products) && data.products.length > 0) {
+        setProducts(data.products);
+      } else {
+        applyFallbackProducts(category, search);
       }
     } catch {
-      setProducts([]);
+      applyFallbackProducts(category, search);
     } finally {
       setLoading(false);
     }
@@ -81,9 +296,10 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
       if (data.success) {
         setSuccessMsg('Your product has been listed in the Marketplace!');
         setShowSellModal(false);
+        setImagePreview(null);
         setSellForm({
           name: '',
-          category: 'Farmer Products',
+          category: 'Farm Produce',
           price: '',
           unit: 'per kg',
           sellerName: activeFarm?.ownerName || '',
@@ -156,11 +372,11 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
                     onChange={e => setSellForm(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                   >
-                    <option value="Farmer Products">Farmer Products</option>
-                    <option value="Instruments">Instruments & Tools</option>
+                    <option value="Farm Produce">Farm Produce (Chickens, Eggs, Compost)</option>
+                    <option value="Feed">Feed & Nutrition</option>
                     <option value="Medicines">Medicines</option>
                     <option value="Vaccines">Vaccines</option>
-                    <option value="Feed">Feed & Nutrition</option>
+                    <option value="Instruments">Instruments & Tools</option>
                   </select>
                 </div>
 
@@ -227,6 +443,78 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
                 </div>
               </div>
 
+              {/* Product Photo Upload */}
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-emerald-400" />
+                    Product Photo
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-normal">Optional (auto-assigned if omitted)</span>
+                </label>
+
+                {imagePreview ? (
+                  <div className="relative rounded-xl border border-emerald-500/40 bg-slate-900/90 p-3 flex items-center gap-4 group shadow-md">
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 shrink-0">
+                      <img
+                        src={imagePreview}
+                        alt="Product preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Photo Attached</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        This photo will be displayed on your marketplace listing
+                      </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <label
+                          htmlFor="product-photo-file"
+                          className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium cursor-pointer transition-colors border border-slate-700"
+                        >
+                          Change Photo
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[11px] font-medium transition-colors border border-rose-500/30"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="product-photo-file"
+                    className="border-2 border-dashed border-slate-700 hover:border-emerald-500/60 rounded-xl p-4 flex flex-col items-center justify-center gap-2 bg-slate-900/40 hover:bg-emerald-950/10 transition-all cursor-pointer group text-center"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-emerald-500/20 border border-slate-700 group-hover:border-emerald-500/40 flex items-center justify-center transition-colors">
+                      <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors">
+                        Click to upload product photo
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        PNG, JPG, JPEG or WEBP (Max 5MB)
+                      </p>
+                    </div>
+                  </label>
+                )}
+
+                <input
+                  id="product-photo-file"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={handleImageFileChange}
+                />
+              </div>
+
               <div className="space-y-1">
                 <label className="font-semibold text-slate-300">Description</label>
                 <textarea
@@ -279,7 +567,7 @@ export default function Marketplace({ activeFarm, setActiveTab, onOpenRegisterFa
               <p className="text-emerald-400 font-extrabold text-lg">৳ {contactModalProduct.price.toLocaleString()} <span className="text-xs font-normal text-slate-400">/{contactModalProduct.unit}</span></p>
               <div className="pt-2 border-t border-slate-800 text-slate-300 space-y-1">
                 <p><span className="text-slate-500">Seller:</span> {contactModalProduct.sellerName}</p>
-                <p><span className="text-slate-500">Location:</span> {contactModalProduct.city}</p>
+                <p><span className="text-slate-500">Location:</span> {contactModalProduct.city || contactModalProduct.sellerLocation || 'Bangladesh'}</p>
                 <p><span className="text-slate-500">Direct Contact:</span> <strong className="text-emerald-400">{contactModalProduct.sellerPhone}</strong></p>
               </div>
             </div>

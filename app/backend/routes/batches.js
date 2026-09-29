@@ -35,6 +35,7 @@ const statusEvaluator = require('../services/statusEvaluator');
 const thresholds = require('../config/thresholds');
 const { calculateProfitInstant } = require('../services/profitEngine');
 const { store, DEMO_FARM_ID } = require('../config/inMemoryStore');
+const { getWeatherForCity } = require('../services/weatherService');
 
 /**
  * Recalculate ML profit projection asynchronously with 1-hour debounce
@@ -532,6 +533,7 @@ router.post('/:id/log', auth, batchOwnership, async (req, res) => {
 
     // Determine calendar day string YYYY-MM-DD in farm timezone
     const todayStr = DateTime.now().setZone(farmZone).toFormat('yyyy-MM-dd');
+    const yesterdayStr = DateTime.now().setZone(farmZone).minus({ days: 1 }).toFormat('yyyy-MM-dd');
     const logDay = requestedLogDay || todayStr;
 
     // Check if a DailyLog document already exists for this (batchId, logDay)
@@ -583,10 +585,23 @@ router.post('/:id/log', auth, batchOwnership, async (req, res) => {
         waterRefilled: waterRefilled !== undefined ? waterRefilled : (log.morning && log.morning.waterRefilled),
         completedAt: now,
       };
+      log.morningRoutine = {
+        completed: true,
+        completedAt: now,
+        feedCompleted: log.morning.feedCompleted,
+        waterRefilled: log.morning.waterRefilled,
+      };
     } else if (session === 'evening') {
       log.evening = {
         feedCompleted: feedCompleted !== undefined ? feedCompleted : (log.evening && log.evening.feedCompleted),
         completedAt: now,
+      };
+      log.eveningRoutine = {
+        completed: true,
+        completedAt: now,
+        feedCompleted: log.evening.feedCompleted,
+        feedWeightKg: feedAmountKg,
+        mortalityCount,
       };
     }
 
@@ -634,11 +649,19 @@ router.post('/:id/log', auth, batchOwnership, async (req, res) => {
     try {
       evaluation = await statusEvaluator.evaluateBatchStatusFromDb(batch._id);
     } catch (_) {
-      evaluation = {
-        status: (mortalityCount > 5 || (log.observedSymptoms && log.observedSymptoms.length > 0)) ? 'Attention Required' : 'Looks Good',
-        reasons: [],
-        evaluatedAt: new Date().toISOString()
-      };
+      const todayLogObj = store.getDailyLog(batch._id, todayStr);
+      const yesterdayLogObj = store.getDailyLog(batch._id, yesterdayStr);
+      const trailingLogs = store.getRecentLogs(batch._id, 7).filter(l => l.logDay !== todayStr).slice(0, 3);
+      const activeTasks = store.getTasks(batch._id, { isCritical: true }).filter(t => ['Pending', 'Overdue'].includes(t.status));
+      const weatherAlerts = store.getAlerts(batch.farmId, batch._id);
+      evaluation = statusEvaluator.evaluateStatus({
+        batch,
+        todayLog: todayLogObj,
+        yesterdayLog: yesterdayLogObj,
+        trailingLogs,
+        tasks: activeTasks,
+        weatherAlerts,
+      });
     }
 
     // Trigger asynchronous debounced ML profit recalculation (never blocks response)
@@ -707,12 +730,19 @@ router.get('/:id/tasks', auth, batchOwnership, async (req, res) => {
   }
 });
 
-// ─── PATCH /api/batches/:id/tasks/:taskId — Mark Task Complete / Skipped ──────
+// ─── PATCH /api/batches/:id/tasks/:taskId & /api/batches/:id/tasks — Mark Task Complete / Skipped ──
 
-router.patch('/:id/tasks/:taskId', auth, batchOwnership, async (req, res) => {
+router.patch(['/:id/tasks/:taskId', '/:id/tasks'], auth, batchOwnership, async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const taskId = req.params.taskId || req.body.taskId;
     const { status, completionData } = req.body;
+
+    if (!taskId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Task ID is required in URL parameter or request body.',
+      });
+    }
 
     if (!status || !['Completed', 'Skipped', 'Pending'].includes(status)) {
       return res.status(400).json({
@@ -825,7 +855,7 @@ router.get('/:id/dashboard', auth, batchOwnership, async (req, res) => {
         DailyLog.findOne({ batchId: batch._id, logDay: todayStr }),
         DailyLog.findOne({ batchId: batch._id, logDay: yesterdayStr }),
         DailyLog.getRecentDays(batch._id, 7),
-        Task.find({ batchId: batch._id, status: 'Pending' }).sort({ dueDate: 1 }).limit(5),
+        Task.find({ batchId: batch._id }).sort({ dueDate: 1 }).limit(50),
         Alert.find({
           $or: [{ batchId: batch._id }, { farmId: batch.farmId }],
           status: 'Active',
@@ -836,7 +866,7 @@ router.get('/:id/dashboard', auth, batchOwnership, async (req, res) => {
       todayLog = store.getDailyLog(batch._id, todayStr);
       yesterdayLog = store.getDailyLog(batch._id, yesterdayStr);
       trailingLogs = store.getRecentLogs(batch._id, 7);
-      upcomingTasks = store.getTasks(batch._id, { status: 'Pending' }).slice(0, 5);
+      upcomingTasks = store.getTasks(batch._id);
       weatherAlerts = store.getAlerts(batch.farmId, batch._id);
       activeTasks = store.getTasks(batch._id, { isCritical: true }).filter(t => ['Pending', 'Overdue'].includes(t.status));
     }
@@ -853,6 +883,26 @@ router.get('/:id/dashboard', auth, batchOwnership, async (req, res) => {
     const bObj = batch.toObject ? batch.toObject() : { ...batch };
     const liveEstimate = batch.liveBirdsEstimate ?? ((bObj.initialChickens || 1000) - (bObj.cumulativeMortality || 0));
 
+    let farmCity = 'Dhaka';
+    try {
+      if (batch.farmId) {
+        let farm = null;
+        try {
+          farm = await Farm.findById(batch.farmId);
+        } catch (_) {
+          farm = store.getFarm(batch.farmId);
+        }
+        if (farm?.city) farmCity = farm.city;
+      }
+    } catch (_) {}
+
+    let weatherReading = null;
+    try {
+      weatherReading = await getWeatherForCity(farmCity);
+    } catch (e) {
+      console.warn('Weather fetch note for dashboard:', e.message);
+    }
+
     res.json({
       success: true,
       dashboard: {
@@ -865,6 +915,13 @@ router.get('/:id/dashboard', auth, batchOwnership, async (req, res) => {
         stageInfo,
         status: evaluation.status,
         reasons: evaluation.reasons,
+        evaluation: {
+          status: evaluation.status,
+          reasons: evaluation.reasons,
+          evaluatedAt: evaluation.evaluatedAt || new Date().toISOString(),
+        },
+        weather: weatherReading,
+        alerts: weatherAlerts || [],
         todayLog,
         recentLogs: trailingLogs,
         upcomingTasks,

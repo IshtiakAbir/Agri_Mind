@@ -1,6 +1,6 @@
 {
   "chickenType": "Broiler",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "reviewedBy": "Dr. K. M. Rahman (Poultry Disease Specialist, DVM, MS)",
   "cycleLengthDays": 35,
   "disclaimer": "Vaccine schedules should follow regional disease prevalence and cold-chain integrity guidelines. Consult your local veterinary officer.",
@@ -10,8 +10,14 @@
       "fromDay": 0,
       "toDay": 7,
       "feed": "Pre-starter Crumble (22-23% crude protein)",
-      "targetTempC": [32.0, 35.0],
-      "targetHumidityPct": [60.0, 70.0],
+      "targetTempC": [
+        32,
+        35
+      ],
+      "targetHumidityPct": [
+        60,
+        70
+      ],
       "tips": [
         "Pre-warm the brooder room 24 hours prior to chick placement.",
         "Provide glucose/electrolytes in drinking water for the first 4-6 hours to combat transport stress.",
@@ -50,8 +56,14 @@
       "fromDay": 8,
       "toDay": 14,
       "feed": "Starter Crumble (21-22% crude protein)",
-      "targetTempC": [29.0, 32.0],
-      "targetHumidityPct": [55.0, 65.0],
+      "targetTempC": [
+        29,
+        32
+      ],
+      "targetHumidityPct": [
+        55,
+        65
+      ],
       "tips": [
         "Gradually decrease brooder temperature by 0.5°C per day.",
         "Expand brooding rings to give chicks 50% more floor space.",
@@ -82,8 +94,14 @@
       "fromDay": 15,
       "toDay": 24,
       "feed": "Grower Pellets (19-20% crude protein)",
-      "targetTempC": [25.0, 28.0],
-      "targetHumidityPct": [50.0, 65.0],
+      "targetTempC": [
+        25,
+        28
+      ],
+      "targetHumidityPct": [
+        50,
+        65
+      ],
       "tips": [
         "Transition feed ratio: 75% starter/25% grower on day 15, 50/50 on day 16, 25/75 on day 17, 100% grower day 18.",
         "Monitor for bloody droppings or ruffled feathers (early coccidiosis indicators).",
@@ -122,8 +140,14 @@
       "fromDay": 25,
       "toDay": 35,
       "feed": "Finisher Pellets (18-19% crude protein)",
-      "targetTempC": [21.0, 25.0],
-      "targetHumidityPct": [50.0, 65.0],
+      "targetTempC": [
+        21,
+        25
+      ],
+      "targetHumidityPct": [
+        50,
+        65
+      ],
       "tips": [
         "Check withdrawal periods on any coccidiostats or therapeutics prior to slaughter.",
         "Run ventilation fans and tunnel cooling during hot afternoon periods.",
