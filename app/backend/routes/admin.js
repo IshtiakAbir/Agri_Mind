@@ -46,6 +46,7 @@ const thresholds = require('../config/thresholds');
 const templateLoader = require('../services/templateLoader');
 const authRoute = require('./auth');
 const productsRoute = require('./products');
+const ordersRoute = require('./orders');
 const doctorsRoute = require('./doctors');
 const predictRoute = require('./predict');
 
@@ -836,7 +837,7 @@ router.put('/products/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Products store unavailable.' });
     }
 
-    const idx = productsRoute.inMemoryProducts.findIndex(p => p._id === pId);
+    const idx = productsRoute.inMemoryProducts.findIndex(p => String(p._id) === String(pId));
     if (idx === -1) {
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
@@ -869,7 +870,7 @@ router.delete('/products/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Products store unavailable.' });
     }
 
-    const idx = productsRoute.inMemoryProducts.findIndex(p => p._id === pId);
+    const idx = productsRoute.inMemoryProducts.findIndex(p => String(p._id) === String(pId));
     if (idx === -1) {
       return res.status(404).json({ success: false, message: 'Product not found.' });
     }
@@ -978,6 +979,97 @@ router.delete('/categories/:name', requireAdmin, async (req, res) => {
   }
   await logAudit(req.user.id, req.user.name, 'category.delete', 'product', name, { name }, null);
   res.json({ success: true, categories: productsRoute.productCategories });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER ORDERS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// List all customer orders with filters and pagination
+router.get('/orders', requireAdminOrSupport, (req, res) => {
+  try {
+    const { status, search, page = 1, limit = 20 } = req.query;
+    let list = ordersRoute.inMemoryOrders ? [...ordersRoute.inMemoryOrders] : [];
+
+    if (status && status !== 'all') {
+      list = list.filter(o => o.orderStatus?.toLowerCase() === status.toLowerCase());
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(o =>
+        o.orderNumber?.toLowerCase().includes(q) ||
+        o.customerName?.toLowerCase().includes(q) ||
+        o.customerPhone?.toLowerCase().includes(q) ||
+        o.deliveryAddress?.toLowerCase().includes(q)
+      );
+    }
+
+    list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const total = list.length;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const paginated = list.slice(skip, skip + parseInt(limit));
+
+    res.json({
+      success: true,
+      orders: paginated,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit)) || 1
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to list orders.' });
+  }
+});
+
+// Update order status or delivery notes
+router.put('/orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const oId = req.params.id;
+    if (!ordersRoute.inMemoryOrders) {
+      return res.status(404).json({ success: false, message: 'Orders store unavailable.' });
+    }
+
+    const order = ordersRoute.inMemoryOrders.find(o => String(o._id) === String(oId) || String(o.orderNumber) === String(oId));
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    const before = { ...order };
+    if (req.body.orderStatus) order.orderStatus = req.body.orderStatus;
+    if (req.body.paymentStatus) order.paymentStatus = req.body.paymentStatus;
+    if (req.body.notes !== undefined) order.notes = req.body.notes;
+    order.updatedAt = new Date().toISOString();
+
+    await logAudit(req.user.id, req.user.name, 'order.update_status', 'order', order.orderNumber, before, order);
+
+    res.json({ success: true, order, message: `Order ${order.orderNumber} updated successfully.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update order.' });
+  }
+});
+
+// Delete or cancel order
+router.delete('/orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const oId = req.params.id;
+    if (!ordersRoute.inMemoryOrders) {
+      return res.status(404).json({ success: false, message: 'Orders store unavailable.' });
+    }
+
+    const idx = ordersRoute.inMemoryOrders.findIndex(o => String(o._id) === String(oId) || String(o.orderNumber) === String(oId));
+    if (idx === -1) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    const deleted = ordersRoute.inMemoryOrders.splice(idx, 1)[0];
+    await logAudit(req.user.id, req.user.name, 'order.delete', 'order', deleted.orderNumber, deleted, null);
+
+    res.json({ success: true, message: `Order ${deleted.orderNumber} removed.` });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to delete order.' });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

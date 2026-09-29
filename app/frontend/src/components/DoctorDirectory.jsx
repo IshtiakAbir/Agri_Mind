@@ -30,7 +30,10 @@ export default function DoctorDirectory() {
   // Booking modal state
   const [bookingDoctor, setBookingDoctor] = useState(null);
   const [bookingType, setBookingType] = useState('video');
+  const [bookingError, setBookingError] = useState('');
   const [bookingForm, setBookingForm] = useState({
+    farmerName: '',
+    farmerPhone: '',
     scheduledAt: '',
     farmAddress: '',
     preferredDateWindow: '',
@@ -38,6 +41,21 @@ export default function DoctorDirectory() {
   });
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  const handleOpenBooking = (doc, type = 'video') => {
+    setBookingDoctor(doc);
+    setBookingType(type);
+    setBookingSuccess(false);
+    setBookingError('');
+    setBookingForm({
+      farmerName: user?.name || '',
+      farmerPhone: user?.mobile || '',
+      scheduledAt: new Date(Date.now() + 86400000).toISOString().slice(0, 16),
+      farmAddress: '',
+      preferredDateWindow: '',
+      notes: ''
+    });
+  };
 
   useEffect(() => {
     fetchDoctors();
@@ -176,33 +194,61 @@ export default function DoctorDirectory() {
   };
 
   const handleBook = async () => {
+    const fName = (bookingForm.farmerName || user?.name || '').trim();
+    const fPhone = (bookingForm.farmerPhone || user?.mobile || '').trim();
+
+    if (!fName) {
+      setBookingError('Please enter your name.');
+      return;
+    }
+    if (!fPhone) {
+      setBookingError('Please enter your contact mobile number.');
+      return;
+    }
+    if (bookingType === 'farm_visit' && !bookingForm.farmAddress.trim()) {
+      setBookingError('Farm address is required for a farm visit appointment.');
+      return;
+    }
+
     setBookingSubmitting(true);
+    setBookingError('');
     try {
       const body = {
         doctorId: bookingDoctor._id,
-        farmerId: user?.id || 'guest',
+        farmerId: user?.id || user?._id || 'guest',
+        farmerName: fName,
+        farmerMobile: fPhone,
+        farmerPhone: fPhone,
         type: bookingType,
-        scheduledAt: bookingForm.scheduledAt || null,
-        farmAddress: bookingForm.farmAddress,
-        preferredDateWindow: bookingForm.preferredDateWindow,
-        notes: bookingForm.notes
+        scheduledAt: bookingForm.scheduledAt || new Date(Date.now() + 86400000).toISOString(),
+        farmAddress: bookingForm.farmAddress ? bookingForm.farmAddress.trim() : null,
+        preferredDateWindow: bookingForm.preferredDateWindow ? bookingForm.preferredDateWindow.trim() : null,
+        notes: bookingForm.notes ? bookingForm.notes.trim() : ''
       };
+
       const res = await fetch('/api/doctors/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.appointment) {
         setBookingSuccess(true);
+        setAppointments(prev => [data.appointment, ...prev]);
         setTimeout(() => {
           setBookingDoctor(null);
           setBookingSuccess(false);
-          setBookingForm({ scheduledAt: '', farmAddress: '', preferredDateWindow: '', notes: '' });
-        }, 2000);
+          setActiveView('appointments');
+          fetchAppointments();
+        }, 1500);
+      } else {
+        setBookingError(data.error || data.message || 'Failed to book appointment. Please check details.');
       }
-    } catch {}
-    finally { setBookingSubmitting(false); }
+    } catch (err) {
+      setBookingError('Network error while booking appointment: ' + err.message);
+    } finally {
+      setBookingSubmitting(false);
+    }
   };
 
   const cancelAppointment = async (id) => {
@@ -358,12 +404,8 @@ export default function DoctorDirectory() {
 
                     {/* Book Button */}
                     <button
-                      onClick={() => {
-                        setBookingDoctor(doc);
-                        setBookingType('video');
-                        setBookingSuccess(false);
-                      }}
-                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-slate-950 text-xs font-bold hover:opacity-90 transition-all flex items-center justify-center gap-1.5"
+                      onClick={() => handleOpenBooking(doc, 'video')}
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-slate-950 text-xs font-bold hover:opacity-90 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
                     >
                       <Calendar className="w-3.5 h-3.5" /> Book Appointment
                     </button>
@@ -460,6 +502,13 @@ export default function DoctorDirectory() {
                   </button>
                 </div>
 
+                {bookingError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{bookingError}</span>
+                  </div>
+                )}
+
                 {/* Doctor Summary */}
                 <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
@@ -471,33 +520,61 @@ export default function DoctorDirectory() {
                   </div>
                 </div>
 
+                {/* Patient / Farmer Contact Fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Your Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Mohammad Rahman"
+                      value={bookingForm.farmerName}
+                      onChange={(e) => setBookingForm(prev => ({ ...prev, farmerName: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 mt-1 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300">Contact Mobile *</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="017XXXXXXXX"
+                      value={bookingForm.farmerPhone}
+                      onChange={(e) => setBookingForm(prev => ({ ...prev, farmerPhone: e.target.value }))}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 mt-1 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
                 {/* Type Selection */}
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-300">Appointment Type</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
+                      type="button"
                       onClick={() => setBookingType('video')}
-                      className={`p-3 rounded-xl border text-center transition-all ${
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                         bookingType === 'video'
-                          ? 'bg-blue-500/15 border-blue-500/50 text-blue-300'
+                          ? 'bg-blue-500/15 border-blue-500/50 text-blue-300 shadow-sm'
                           : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
                       <Video className="w-5 h-5 mx-auto" />
                       <p className="text-xs font-bold mt-1">Video Call</p>
-                      <p className="text-[10px] mt-0.5">৳{bookingDoctor.consultationFee.video}</p>
+                      <p className="text-[10px] mt-0.5">৳{bookingDoctor.consultationFee?.video || 300}</p>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setBookingType('farm_visit')}
-                      className={`p-3 rounded-xl border text-center transition-all ${
+                      className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                         bookingType === 'farm_visit'
-                          ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
+                          ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300 shadow-sm'
                           : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
                       }`}
                     >
                       <Truck className="w-5 h-5 mx-auto" />
                       <p className="text-xs font-bold mt-1">Farm Visit</p>
-                      <p className="text-[10px] mt-0.5">৳{bookingDoctor.consultationFee.farmVisit}</p>
+                      <p className="text-[10px] mt-0.5">৳{bookingDoctor.consultationFee?.farmVisit || 500}</p>
                     </button>
                   </div>
                 </div>
@@ -509,7 +586,7 @@ export default function DoctorDirectory() {
                     <input
                       type="datetime-local"
                       value={bookingForm.scheduledAt}
-                      onChange={(e) => setBookingForm(prev => ({...prev, scheduledAt: e.target.value}))}
+                      onChange={(e) => setBookingForm(prev => ({ ...prev, scheduledAt: e.target.value }))}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 mt-1 focus:outline-none focus:border-blue-500"
                     />
                   </div>

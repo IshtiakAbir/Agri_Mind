@@ -724,6 +724,7 @@ function UserManagementPage({ adminFetch, showToast }) {
 // 3. MARKETPLACE (AGRISHOP) MANAGEMENT (Task 4)
 // ═══════════════════════════════════════════════════════════════════════════════
 function MarketplaceManagementPage({ adminFetch, showToast }) {
+  const [activeSubTab, setActiveSubTab] = useState('catalog'); // 'catalog' | 'orders'
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -732,6 +733,12 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
   const [lowStockFilter, setLowStockFilter] = useState(false);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
+
+  // Customer Orders state
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('all');
 
   // Selected products for bulk action
   const [selectedIds, setSelectedIds] = useState([]);
@@ -780,7 +787,56 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
     setLoading(false);
   }, [adminFetch, page, search, categoryFilter, lowStockFilter, showToast]);
 
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (orderStatusFilter && orderStatusFilter !== 'all') params.append('status', orderStatusFilter);
+      if (orderSearch.trim()) params.append('search', orderSearch.trim());
+      const data = await adminFetch(`/orders?${params.toString()}`);
+      if (data.success) {
+        setOrders(data.orders || []);
+      }
+    } catch (_) {
+      showToast('Failed to load customer orders.', 'error');
+    }
+    setOrdersLoading(false);
+  }, [adminFetch, orderStatusFilter, orderSearch, showToast]);
+
   useEffect(() => { loadProducts(); }, [loadProducts]);
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const data = await adminFetch(`/orders/${orderId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ orderStatus: newStatus })
+      });
+      if (data.success) {
+        showToast(`Order status updated to ${newStatus}.`, 'success');
+        loadOrders();
+      } else {
+        showToast(data.message || 'Failed to update order status.', 'error');
+      }
+    } catch (_) {
+      showToast('Network error while updating order.', 'error');
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Delete this customer order record?')) return;
+    try {
+      const data = await adminFetch(`/orders/${orderId}`, { method: 'DELETE' });
+      if (data.success) {
+        showToast('Order removed.', 'success');
+        loadOrders();
+      } else {
+        showToast(data.message || 'Failed to delete order.', 'error');
+      }
+    } catch (_) {
+      showToast('Failed to delete order.', 'error');
+    }
+  };
 
   // Create Product
   const handleCreate = async () => {
@@ -970,12 +1026,110 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
     }
   ];
 
+  const orderColumns = [
+    {
+      header: 'Order # & Placed',
+      render: (o) => (
+        <div>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#10b981', background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: 6 }}>
+            #{o.orderNumber}
+          </span>
+          <p style={{ margin: '4px 0 0', fontSize: 10, color: '#64748b' }}>
+            {o.createdAt ? new Date(o.createdAt).toLocaleString() : 'Recent'}
+          </p>
+        </div>
+      )
+    },
+    {
+      header: 'Customer & Delivery Contact',
+      render: (o) => (
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{o.customerName}</p>
+          <a
+            href={`tel:${o.customerPhone}`}
+            style={{ fontSize: 11, fontFamily: 'monospace', color: '#10b981', textDecoration: 'none' }}
+          >
+            📞 {o.customerPhone}
+          </a>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8', maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            📍 {o.deliveryAddress} ({o.district})
+          </p>
+          {o.notes && (
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#f59e0b', fontStyle: 'italic' }}>
+              Note: {o.notes}
+            </p>
+          )}
+        </div>
+      )
+    },
+    {
+      header: 'Items Ordered',
+      render: (o) => (
+        <div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#cbd5e1' }}>
+            {o.items?.length || 0} {(o.items?.length || 0) === 1 ? 'item' : 'items'}
+          </span>
+          <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 220 }}>
+            {o.items?.slice(0, 3).map((item, idx) => (
+              <span key={idx} style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                • {item.name} × <strong style={{ color: '#e2e8f0' }}>{item.quantity}</strong>
+              </span>
+            ))}
+            {(o.items?.length || 0) > 3 && (
+              <span style={{ fontSize: 9, color: '#64748b' }}>+{(o.items?.length || 0) - 3} more items</span>
+            )}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Total & Payment',
+      render: (o) => (
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#10b981' }}>
+            ৳{o.totalAmount?.toLocaleString()}
+          </span>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>
+            {o.paymentMethod || 'Cash on Delivery'}
+          </p>
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+            background: o.paymentStatus === 'paid' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+            color: o.paymentStatus === 'paid' ? '#10b981' : '#f59e0b',
+            textTransform: 'uppercase'
+          }}>
+            {o.paymentStatus || 'Pending Payment'}
+          </span>
+        </div>
+      )
+    },
+    {
+      header: 'Order Status',
+      render: (o) => {
+        const s = (o.orderStatus || 'pending').toLowerCase();
+        const colors = {
+          pending: { bg: 'rgba(245,158,11,0.15)', text: '#f59e0b' },
+          confirmed: { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6' },
+          shipped: { bg: 'rgba(168,85,247,0.15)', text: '#a855f7' },
+          delivered: { bg: 'rgba(16,185,129,0.15)', text: '#10b981' },
+          cancelled: { bg: 'rgba(239,68,68,0.15)', text: '#ef4444' }
+        };
+        const c = colors[s] || colors.pending;
+        return (
+          <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: c.bg, color: c.text, textTransform: 'uppercase' }}>
+            {o.orderStatus || 'PENDING'}
+          </span>
+        );
+      }
+    }
+  ];
+
   return (
     <div>
       <div style={styles.pageHeader}>
         <div>
           <h2 style={styles.pageTitle}>AgriShop Marketplace Management</h2>
-          <p style={styles.pageSubtitle}>Product catalog, stock thresholds, active ingredient tags, and category control</p>
+          <p style={styles.pageSubtitle}>Product catalog, customer orders oversight, stock thresholds, and categories</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => setShowCategoryModal(true)} style={styles.btnSecondary}>
@@ -987,69 +1141,179 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
         </div>
       </div>
 
-      {/* Filter and Bulk Actions */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ ...styles.inputGroup, flex: 1, minWidth: 200 }}>
-          <Search size={14} color="#64748b" />
-          <input
-            style={styles.input}
-            placeholder="Search products by title, description or seller..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-          />
-        </div>
-        <select style={styles.select} value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}>
-          <option value="">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+      {/* Sub-Tabs: Catalog vs Customer Orders */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, borderBottom: '1px solid rgba(51,65,85,0.4)', paddingBottom: 12 }}>
         <button
-          onClick={() => { setLowStockFilter(!lowStockFilter); setPage(1); }}
+          onClick={() => setActiveSubTab('catalog')}
           style={{
             ...styles.btnSecondary,
-            background: lowStockFilter ? 'rgba(239,68,68,0.2)' : 'rgba(15,23,42,0.6)',
-            borderColor: lowStockFilter ? '#ef4444' : 'rgba(51,65,85,0.4)',
-            color: lowStockFilter ? '#ef4444' : '#94a3b8'
+            background: activeSubTab === 'catalog' ? 'rgba(16,185,129,0.2)' : 'rgba(15,23,42,0.6)',
+            borderColor: activeSubTab === 'catalog' ? '#10b981' : 'rgba(51,65,85,0.4)',
+            color: activeSubTab === 'catalog' ? '#10b981' : '#94a3b8',
+            fontWeight: 700
           }}
         >
-          <AlertCircle size={14} /> Low-Stock Alert View
+          <ShoppingBag size={14} /> Products Catalog ({products.length})
         </button>
 
-        {selectedIds.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(51,65,85,0.3)', padding: '6px 12px', borderRadius: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0' }}>{selectedIds.length} Selected:</span>
-            <button onClick={() => handleBulkStatus('active')} style={{ ...styles.btnSecondary, padding: '4px 8px', fontSize: 11 }}>Activate</button>
-            <button onClick={() => handleBulkStatus('hidden')} style={{ ...styles.btnSecondary, padding: '4px 8px', fontSize: 11 }}>Hide</button>
-          </div>
-        )}
+        <button
+          onClick={() => setActiveSubTab('orders')}
+          style={{
+            ...styles.btnSecondary,
+            background: activeSubTab === 'orders' ? 'rgba(16,185,129,0.2)' : 'rgba(15,23,42,0.6)',
+            borderColor: activeSubTab === 'orders' ? '#10b981' : 'rgba(51,65,85,0.4)',
+            color: activeSubTab === 'orders' ? '#10b981' : '#94a3b8',
+            fontWeight: 700
+          }}
+        >
+          <Package size={14} /> Customer Orders ({orders.length})
+        </button>
       </div>
 
-      {/* Product Table */}
-      <div style={styles.card}>
-        <DataTable
-          columns={columns}
-          data={products}
-          emptyMessage="No products matching filters."
-          onRowAction={(p) => (
-            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setEditProduct({
-                  ...p,
-                  activeIngredients: Array.isArray(p.activeIngredients) ? p.activeIngredients.join(', ') : (p.activeIngredients || ''),
-                  treatmentTags: Array.isArray(p.treatmentTags) ? p.treatmentTags.join(', ') : (p.treatmentTags || '')
-                })}
-                style={styles.btnIcon}
-                title="Edit Product"
-              >
-                <Edit3 size={14} color="#3b82f6" />
-              </button>
-              <button onClick={() => handleDelete(p._id)} style={styles.btnIcon} title="Delete Product">
-                <Trash2 size={14} color="#ef4444" />
-              </button>
+      {activeSubTab === 'catalog' ? (
+        <>
+          {/* Filter and Bulk Actions */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ ...styles.inputGroup, flex: 1, minWidth: 200 }}>
+              <Search size={14} color="#64748b" />
+              <input
+                style={styles.input}
+                placeholder="Search products by title, description or seller..."
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1); }}
+              />
             </div>
-          )}
-        />
-        <Pagination page={page} pages={pages} onPageChange={setPage} />
-      </div>
+            <select style={styles.select} value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}>
+              <option value="">All Categories</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              onClick={() => { setLowStockFilter(!lowStockFilter); setPage(1); }}
+              style={{
+                ...styles.btnSecondary,
+                background: lowStockFilter ? 'rgba(239,68,68,0.2)' : 'rgba(15,23,42,0.6)',
+                borderColor: lowStockFilter ? '#ef4444' : 'rgba(51,65,85,0.4)',
+                color: lowStockFilter ? '#ef4444' : '#94a3b8'
+              }}
+            >
+              <AlertCircle size={14} /> Low-Stock Alert View
+            </button>
+
+            {selectedIds.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'rgba(51,65,85,0.3)', padding: '6px 12px', borderRadius: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0' }}>{selectedIds.length} Selected:</span>
+                <button onClick={() => handleBulkStatus('active')} style={{ ...styles.btnSecondary, padding: '4px 8px', fontSize: 11 }}>Activate</button>
+                <button onClick={() => handleBulkStatus('hidden')} style={{ ...styles.btnSecondary, padding: '4px 8px', fontSize: 11 }}>Hide</button>
+              </div>
+            )}
+          </div>
+
+          {/* Product Table */}
+          <div style={styles.card}>
+            <DataTable
+              columns={columns}
+              data={products}
+              emptyMessage="No products matching filters."
+              onRowAction={(p) => (
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setEditProduct({
+                      ...p,
+                      unit: p.unit || '1 unit',
+                      image: p.image || '',
+                      sellerName: p.sellerName || '',
+                      sellerPhone: p.sellerPhone || '',
+                      city: p.city || '',
+                      activeIngredients: Array.isArray(p.activeIngredients) ? p.activeIngredients.join(', ') : (p.activeIngredients || ''),
+                      treatmentTags: Array.isArray(p.treatmentTags) ? p.treatmentTags.join(', ') : (p.treatmentTags || '')
+                    })}
+                    style={styles.btnIcon}
+                    title="Edit Product"
+                  >
+                    <Edit3 size={14} color="#3b82f6" />
+                  </button>
+                  <button onClick={() => handleDelete(p._id)} style={styles.btnIcon} title="Delete Product">
+                    <Trash2 size={14} color="#ef4444" />
+                  </button>
+                </div>
+              )}
+            />
+            <Pagination page={page} pages={pages} onPageChange={setPage} />
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Customer Orders Oversight Controls */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ ...styles.inputGroup, flex: 1, minWidth: 200 }}>
+              <Search size={14} color="#64748b" />
+              <input
+                style={styles.input}
+                placeholder="Search orders by Order #, customer name, mobile, address..."
+                value={orderSearch}
+                onChange={e => setOrderSearch(e.target.value)}
+              />
+            </div>
+
+            <select
+              style={styles.select}
+              value={orderStatusFilter}
+              onChange={e => setOrderStatusFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            <button onClick={loadOrders} style={styles.btnSecondary} title="Refresh orders">
+              <RefreshCw size={14} className={ordersLoading ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
+
+          {/* Orders Table */}
+          <div style={styles.card}>
+            <DataTable
+              columns={orderColumns}
+              data={orders}
+              emptyMessage="No customer orders found."
+              onRowAction={(o) => (
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <select
+                    value={o.orderStatus || 'pending'}
+                    onChange={e => handleUpdateOrderStatus(o._id || o.orderNumber, e.target.value)}
+                    style={{
+                      background: 'rgba(15,23,42,0.8)',
+                      border: '1px solid rgba(51,65,85,0.6)',
+                      borderRadius: 6,
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      padding: '3px 6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+
+                  <button
+                    onClick={() => handleDeleteOrder(o._id || o.orderNumber)}
+                    style={styles.btnIcon}
+                    title="Delete Customer Order"
+                  >
+                    <Trash2 size={14} color="#ef4444" />
+                  </button>
+                </div>
+              )}
+            />
+          </div>
+        </>
+      )}
 
       {/* Add Product Modal */}
       {showAddModal && (
@@ -1106,11 +1370,11 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
       {/* Edit Product Modal */}
       {editProduct && (
         <div style={styles.overlay} onClick={() => setEditProduct(null)}>
-          <div style={{ ...styles.modal, maxWidth: 540 }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', margin: '0 0 20px' }}>Edit Product</h3>
+          <div style={{ ...styles.modal, maxWidth: 620 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0', margin: '0 0 16px' }}>Edit Marketplace Product</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
-                <label style={styles.label}>Product Name</label>
+                <label style={styles.label}>Product Name *</label>
                 <input style={styles.modalInput} value={editProduct.name || ''} onChange={e => setEditProduct({ ...editProduct, name: e.target.value })} />
               </div>
               <div>
@@ -1120,31 +1384,61 @@ function MarketplaceManagementPage({ adminFetch, showToast }) {
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
-                <label style={styles.label}>Price (৳)</label>
+                <label style={styles.label}>Price (৳) *</label>
                 <input type="number" style={styles.modalInput} value={editProduct.price || ''} onChange={e => setEditProduct({ ...editProduct, price: e.target.value })} />
               </div>
               <div>
-                <label style={styles.label}>Stock</label>
+                <label style={styles.label}>Unit</label>
+                <input style={styles.modalInput} placeholder="e.g. 100g, per kg" value={editProduct.unit || ''} onChange={e => setEditProduct({ ...editProduct, unit: e.target.value })} />
+              </div>
+              <div>
+                <label style={styles.label}>Stock Qty</label>
                 <input type="number" style={styles.modalInput} value={editProduct.stock !== undefined ? editProduct.stock : ''} onChange={e => setEditProduct({ ...editProduct, stock: e.target.value })} />
               </div>
               <div>
-                <label style={styles.label}>Status</label>
+                <label style={styles.label}>Listing Status</label>
                 <select style={styles.modalInput} value={editProduct.status || 'active'} onChange={e => setEditProduct({ ...editProduct, status: e.target.value })}>
                   <option value="active">Active</option>
                   <option value="hidden">Hidden</option>
                 </select>
               </div>
             </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={styles.label}>Seller Name</label>
+                <input style={styles.modalInput} placeholder="e.g. Square AgroVet or Farmer Name" value={editProduct.sellerName || ''} onChange={e => setEditProduct({ ...editProduct, sellerName: e.target.value })} />
+              </div>
+              <div>
+                <label style={styles.label}>Seller Phone</label>
+                <input style={styles.modalInput} placeholder="e.g. +880 1711-223344" value={editProduct.sellerPhone || ''} onChange={e => setEditProduct({ ...editProduct, sellerPhone: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div>
+                <label style={styles.label}>Location / City</label>
+                <input style={styles.modalInput} placeholder="e.g. Gazipur, Dhaka" value={editProduct.city || ''} onChange={e => setEditProduct({ ...editProduct, city: e.target.value })} />
+              </div>
+              <div>
+                <label style={styles.label}>Image URL</label>
+                <input style={styles.modalInput} placeholder="https://..." value={editProduct.image || ''} onChange={e => setEditProduct({ ...editProduct, image: e.target.value })} />
+              </div>
+            </div>
+
             <div style={{ marginBottom: 12 }}>
-              <label style={styles.label}>Active Ingredients (Comma-separated for Disease cross-linking)</label>
+              <label style={styles.label}>Active Ingredients (Comma-separated for disease diagnosis cross-linking)</label>
               <input style={styles.modalInput} value={editProduct.activeIngredients || ''} onChange={e => setEditProduct({ ...editProduct, activeIngredients: e.target.value })} />
             </div>
+
             <div style={{ marginBottom: 12 }}>
               <label style={styles.label}>Description</label>
-              <textarea style={{ ...styles.modalInput, height: 60 }} value={editProduct.description || ''} onChange={e => setEditProduct({ ...editProduct, description: e.target.value })} />
+              <textarea style={{ ...styles.modalInput, height: 50 }} value={editProduct.description || ''} onChange={e => setEditProduct({ ...editProduct, description: e.target.value })} />
             </div>
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={() => setEditProduct(null)} style={styles.btnSecondary}>Cancel</button>
               <button onClick={handleEditSave} style={styles.btnPrimary}>Save Changes</button>
@@ -1495,6 +1789,22 @@ function AppointmentsOversightPage({ adminFetch, showToast, initialStatus }) {
     {
       header: 'ID',
       render: (a) => <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8' }}>{a._id}</span>
+    },
+    {
+      header: 'Farmer / Client',
+      render: (a) => (
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>{a.farmerName || 'Local Farmer'}</p>
+          <p style={{ margin: 0, fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
+            📱 {a.farmerMobile || a.farmerPhone || 'N/A'}
+          </p>
+          {a.farmAddress && (
+            <p style={{ margin: '2px 0 0', fontSize: 10, color: '#64748b', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.farmAddress}>
+              📍 {a.farmAddress}
+            </p>
+          )}
+        </div>
+      )
     },
     {
       header: 'Doctor',

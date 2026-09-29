@@ -68,6 +68,7 @@ app.use('/api/user',     require('./routes/user'));
 app.use('/api/farms',    require('./routes/farms'));
 app.use('/api/predict',  require('./routes/predict'));
 app.use('/api/products', require('./routes/products'));
+app.use('/api/orders',   require('./routes/orders'));
 app.use('/api/weather',  require('./routes/weather'));
 app.use('/api/history',  require('./routes/predict')); // Alias for history query convenience
 app.use('/api/doctors',  require('./routes/doctors'));

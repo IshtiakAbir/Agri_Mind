@@ -16,7 +16,52 @@ const { SEED_DOCTORS, ALL_DISTRICTS } = require('../seeds/doctorSeedData');
 
 // In-memory appointment store
 const appointments = new Map();
-let appointmentCounter = 1;
+let appointmentCounter = 3;
+
+// Seed initial realistic appointments so Admin Panel and User can see appointments immediately
+appointments.set('appt_000001', {
+  _id: 'appt_000001',
+  farmerId: '65fc20a1b900000000000001',
+  farmerName: 'Mohammad Rahman',
+  farmerMobile: '01712345678',
+  farmerPhone: '01712345678',
+  doctorId: 'doc_0001',
+  doctorName: 'Dr. Abdul Rahman',
+  doctorDistrict: 'Dhaka',
+  doctorSpecialty: 'Poultry Medicine & Surgery',
+  type: 'farm_visit',
+  status: 'pending',
+  scheduledAt: new Date(Date.now() + 86400000 * 2).toISOString(),
+  preferredDateWindow: 'Morning 10am - 12pm',
+  farmAddress: 'Green Valley Agro, Joydebpur, Gazipur',
+  meetingLink: null,
+  fee: 800,
+  notes: 'Shed 1 broilers showing mild respiratory rales and sneezing.',
+  createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
+  updatedAt: new Date(Date.now() - 3600000 * 12).toISOString()
+});
+
+appointments.set('appt_000002', {
+  _id: 'appt_000002',
+  farmerId: 'guest',
+  farmerName: 'Rafiqul Islam',
+  farmerMobile: '01733221100',
+  farmerPhone: '01733221100',
+  doctorId: 'doc_0002',
+  doctorName: 'Dr. Fatima Hossain',
+  doctorDistrict: 'Gazipur',
+  doctorSpecialty: 'Avian Pathology',
+  type: 'video',
+  status: 'confirmed',
+  scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+  preferredDateWindow: null,
+  farmAddress: null,
+  meetingLink: 'https://meet.agrimind.app/vet-consult-000002',
+  fee: 350,
+  notes: 'Need expert review of post-mortem liver lesions in layer flock.',
+  createdAt: new Date(Date.now() - 3600000 * 36).toISOString(),
+  updatedAt: new Date(Date.now() - 3600000 * 4).toISOString()
+});
 
 // ─── GET /api/doctors ─────────────────────────────────────────────────────────
 // Search/filter doctors. Query params: district, specialty, search, page, limit
@@ -91,6 +136,9 @@ router.post('/appointments', (req, res) => {
     const {
       doctorId,
       farmerId,
+      farmerName,
+      farmerMobile,
+      farmerPhone,
       batchId,
       type,         // 'video' | 'farm_visit'
       scheduledAt,
@@ -129,6 +177,9 @@ router.post('/appointments', (req, res) => {
     const appointment = {
       _id: `appt_${String(appointmentCounter++).padStart(6, '0')}`,
       farmerId: farmerId || 'guest',
+      farmerName: (farmerName || 'Local Farmer').trim(),
+      farmerMobile: (farmerMobile || farmerPhone || '01700000000').trim(),
+      farmerPhone: (farmerPhone || farmerMobile || '01700000000').trim(),
       doctorId,
       doctorName: doctor.name,
       doctorDistrict: doctor.district,
@@ -136,10 +187,10 @@ router.post('/appointments', (req, res) => {
       batchId: batchId || null,
       type,
       status: 'pending',   // pending | confirmed | completed | cancelled
-      scheduledAt: scheduledAt || null,
+      scheduledAt: scheduledAt || new Date(Date.now() + 86400000).toISOString(),
       preferredDateWindow: type === 'farm_visit' ? (preferredDateWindow || null) : null,
       farmAddress: type === 'farm_visit' ? farmAddress : null,
-      meetingLink: type === 'video' ? 'https://meet.agrimind.app/placeholder' : null, // TODO: Integrate real video provider
+      meetingLink: type === 'video' ? `https://meet.agrimind.app/vet-consult-${Date.now().toString().slice(-6)}` : null,
       fee: type === 'video' ? doctor.consultationFee.video : doctor.consultationFee.farmVisit,
       notes: notes || '',
       diagnosisId: diagnosisId || null,
