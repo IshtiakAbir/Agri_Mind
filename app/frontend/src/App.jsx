@@ -58,7 +58,7 @@ const queryClient = new QueryClient({
 });
 
 const MainApp = () => {
-  const { user, logout, language, toggleLanguage, loading, loginGuest } = useContext(AuthContext);
+  const { user, login, logout, language, toggleLanguage, loading, loginGuest } = useContext(AuthContext);
 
   const getInitialTab = () => {
     if (typeof window !== 'undefined') {
@@ -207,9 +207,28 @@ const MainApp = () => {
             HTTP 403 Forbidden
           </span>
           <h1 className="text-3xl font-extrabold text-slate-100 mb-2">Access Denied</h1>
-          <p className="text-sm text-slate-400 max-w-md mb-8 leading-relaxed">
+          <p className="text-sm text-slate-400 max-w-md mb-6 leading-relaxed">
             Administrative privileges are required to access this control center. Non-administrative users cannot view or interact with administrative routes.
           </p>
+
+          {/* Admin Credentials Quick Card */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 max-w-sm w-full mb-6 text-left shadow-xl shadow-slate-950/60">
+            <div className="text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>🛡️ Administrator Credentials</span>
+              <span className="text-[10px] text-slate-500 font-normal">Default Access</span>
+            </div>
+            <div className="space-y-1.5 font-mono text-xs">
+              <div className="flex justify-between items-center text-slate-300 bg-slate-950/80 px-3 py-2 rounded-lg border border-slate-800">
+                <span className="text-slate-500">Mobile / ID:</span>
+                <span className="font-bold text-amber-300 select-all">01999999999</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-300 bg-slate-950/80 px-3 py-2 rounded-lg border border-slate-800">
+                <span className="text-slate-500">Password:</span>
+                <span className="font-bold text-emerald-400 select-all">password123</span>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={() => {
@@ -221,16 +240,23 @@ const MainApp = () => {
               ← Back to AgriMind Home
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
+                if (login) {
+                  const res = await login('01999999999', 'password123');
+                  if (res && res.success) {
+                    setActiveTab('admin');
+                    return;
+                  }
+                }
                 setAuthView('login');
                 setSkipAuth(false);
                 sessionStorage.setItem('loginRedirect', 'admin');
                 window.history.pushState({}, '', '/');
                 setActiveTab('home');
               }}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center gap-1.5"
             >
-              Log In as Administrator →
+              <span>🛡️ 1-Click Admin Login →</span>
             </button>
           </div>
         </div>

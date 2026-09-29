@@ -49,8 +49,9 @@ const LoginPage = ({ onNavigateToRegister, onSkip }) => {
     noAccountText: language === 'bn' ? 'নতুন খামারী?' : "Don't have an account?",
     registerBtn: language === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন' : 'Create Account',
     demoAccess: language === 'bn' ? 'লগইন ছাড়া সরাসরি প্রবেশ করুন →' : 'Instant Guest Access (No Login) →',
-    demoFarmerBtn: language === 'bn' ? '🧑‍🌾 খামারী ডেমো (১-ক্লিক)' : '🧑‍🌾 Demo Farmer (1-Click)',
-    demoStaffBtn: language === 'bn' ? '💼 কর্মকর্তা ডেমো (১-ক্লিক)' : '💼 Staff Demo (1-Click)',
+    demoFarmerBtn: language === 'bn' ? '🧑‍🌾 খামারী' : '🧑‍🌾 Farmer',
+    demoStaffBtn: language === 'bn' ? '💼 স্টাফ' : '💼 Staff',
+    demoAdminBtn: language === 'bn' ? '🛡️ অ্যাডমিন' : '🛡️ Admin',
     invalidMobileErr: language === 'bn'
       ? 'মোবাইল নম্বরটি অবশ্যই ১১ ডিজিটের হতে হবে এবং ০১ দিয়ে শুরু হতে হবে।'
       : 'Mobile number must be 11 digits and start with 01.',
@@ -255,12 +256,12 @@ const LoginPage = ({ onNavigateToRegister, onSkip }) => {
                 <span>⚡ {language === 'bn' ? 'দ্রুত প্রবেশ (ডেমো)' : 'Quick Demo Access:'}</span>
                 <span className="text-[10px] text-slate-500 font-mono">pass: password123</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleQuickLogin('01712345678', 'password123')}
                   disabled={loading}
-                  className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-500/50 text-[11px] font-bold text-emerald-300 transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-2 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-emerald-500/50 text-[11px] font-bold text-emerald-300 transition-all text-center flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                   title="Login as Mohammad Rahman (01712345678 / password123)"
                 >
                   <span>{t.demoFarmerBtn}</span>
@@ -269,11 +270,25 @@ const LoginPage = ({ onNavigateToRegister, onSkip }) => {
                   type="button"
                   onClick={() => handleQuickLogin('01800000000', 'password123')}
                   disabled={loading}
-                  className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-teal-500/50 text-[11px] font-bold text-teal-300 transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-2 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 hover:border-teal-500/50 text-[11px] font-bold text-teal-300 transition-all text-center flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                   title="Login as Staff Officer (01800000000 / password123)"
                 >
                   <span>{t.demoStaffBtn}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin('01999999999', 'password123')}
+                  disabled={loading}
+                  className="px-2 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-[11px] font-bold text-amber-300 transition-all text-center flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 shadow-sm"
+                  title="Login as Admin (01999999999 / password123)"
+                >
+                  <span>{t.demoAdminBtn}</span>
+                </button>
+              </div>
+
+              <div className="text-[10px] text-slate-400 bg-slate-950/70 border border-slate-800/80 rounded-lg p-2 font-mono flex flex-wrap items-center justify-between gap-1">
+                <span>🛡️ Admin: <strong className="text-amber-400">01999999999</strong></span>
+                <span>Pass: <strong className="text-emerald-400">password123</strong></span>
               </div>
 
               {onSkip && (
