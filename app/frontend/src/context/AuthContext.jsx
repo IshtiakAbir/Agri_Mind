@@ -156,7 +156,7 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       }
     } catch (_) {}
-    const fallbackUser = { id: '65fc20a1b900000000000001', name: 'Demo Farmer (Guest)', mobile: '01700000000', role: 'farmer' };
+    const fallbackUser = { id: '65fc20a1b900000000000001', name: 'Guest Farmer', mobile: '01700000000', role: 'farmer' };
     setUser(fallbackUser);
     return { success: true };
   };

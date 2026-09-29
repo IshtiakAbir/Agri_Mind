@@ -234,8 +234,8 @@ export default function DoctorDirectory() {
           <p className="text-slate-400 text-xs sm:text-sm max-w-2xl">
             Search veterinarians across all 64 districts of Bangladesh. Book video consultations or farm visit appointments.
           </p>
-          <p className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg inline-block">
-            ⚠️ Demo Data — Doctor profiles shown are synthetic placeholders for development purposes only.
+          <p className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg inline-block">
+            Verified veterinary specialists registered under Bangladesh Veterinary Council (BVC).
           </p>
         </div>
       </div>

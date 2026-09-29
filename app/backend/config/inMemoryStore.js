@@ -39,7 +39,7 @@ class InMemoryStore {
     // 1. Demo Farm
     const demoFarm = {
       _id: DEMO_FARM_ID,
-      farmName: 'Green Valley Agro (Demo Farm)',
+      farmName: 'Green Valley Agro',
       ownerName: 'Mohammad Rahman',
       phoneNumber: '01712345678',
       country: 'Bangladesh',

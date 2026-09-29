@@ -253,7 +253,7 @@ const LoginPage = ({ onNavigateToRegister, onSkip }) => {
             {/* Quick Demo Logins & Instant Guest Access */}
             <div className="pt-2 border-t border-slate-800/80 space-y-2.5">
               <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                <span>⚡ {language === 'bn' ? 'দ্রুত প্রবেশ (ডেমো)' : 'Quick Demo Access:'}</span>
+                <span>⚡ {language === 'bn' ? 'দ্রুত প্রবেশ:' : 'Quick Sign In:'}</span>
                 <span className="text-[10px] text-slate-500 font-mono">pass: password123</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5">

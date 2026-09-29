@@ -38,10 +38,10 @@ const seedUser = (id, name, mobile, role) => {
   });
 };
 
-seedUser(DEMO_USER_ID, 'Mohammad Rahman (Demo)', '01712345678', 'farmer');
-seedUser('65fc20a1b900000000000000', 'Demo Farmer (Guest)', '01700000000', 'farmer');
-seedUser('65fc20a1b900000000000009', 'Field Officer (Demo Staff)', '01800000000', 'employee');
-seedUser('65fc20a1b900000000000099', 'Platform Admin (Demo)', '01999999999', 'admin');
+seedUser(DEMO_USER_ID, 'Mohammad Rahman', '01712345678', 'farmer');
+seedUser('65fc20a1b900000000000000', 'Guest Farmer', '01700000000', 'farmer');
+seedUser('65fc20a1b900000000000009', 'Field Officer', '01800000000', 'employee');
+seedUser('65fc20a1b900000000000099', 'Platform Administrator', '01999999999', 'admin');
 
 // Helper to generate JWT token
 const generateToken = (user) => {
@@ -233,7 +233,7 @@ router.post('/guest', (req, res) => {
   const guestUser = inMemoryUsers.get('01700000000') || {
     _id: DEMO_USER_ID,
     id: DEMO_USER_ID,
-    name: 'Demo Farmer (Guest)',
+    name: 'Guest Farmer',
     mobile: '01700000000',
     role: 'farmer'
   };
