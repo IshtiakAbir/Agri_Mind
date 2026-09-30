@@ -147,7 +147,7 @@ const FALLBACK_PRODUCTS = [
   }
 ];
 
-export default function Marketplace({ activeFarm, activeFarmId, setActiveTab, onOpenRegisterFarm }) {
+export default function Marketplace({ activeFarm, activeFarmId, setActiveTab, onOpenRegisterFarm, onRequireAuth }) {
   const { user } = useContext(AuthContext);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -800,8 +800,18 @@ export default function Marketplace({ activeFarm, activeFarmId, setActiveTab, on
             </button>
 
             <button
-              onClick={() => setShowSellModal(true)}
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-950/50 hover:scale-[1.02] transition-all flex items-center gap-2"
+              onClick={() => {
+                if (!user) {
+                  if (onRequireAuth) {
+                    onRequireAuth();
+                  } else {
+                    setActiveTab('your-farm');
+                  }
+                  return;
+                }
+                setShowSellModal(true);
+              }}
+              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-emerald-950/50 hover:scale-[1.02] transition-all flex items-center gap-2 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Sell Your Farm Produce</span>

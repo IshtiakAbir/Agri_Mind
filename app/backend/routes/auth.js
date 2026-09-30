@@ -38,9 +38,7 @@ const seedUser = (id, name, mobile, role) => {
   });
 };
 
-seedUser(DEMO_USER_ID, 'Mohammad Rahman', '01712345678', 'farmer');
-seedUser('65fc20a1b900000000000000', 'Guest Farmer', '01700000000', 'farmer');
-seedUser('65fc20a1b900000000000009', 'Field Officer', '01800000000', 'employee');
+// Production Administrator (kept as requested: 01999999999 / password123)
 seedUser('65fc20a1b900000000000099', 'Platform Administrator', '01999999999', 'admin');
 
 // Helper to generate JWT token
@@ -227,21 +225,11 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // @route   POST /api/auth/guest
-// @desc    Fast guest / demo farmer authentication token
-// @access  Public
+// @desc    Guest login disabled — users must sign in or register
 router.post('/guest', (req, res) => {
-  const guestUser = inMemoryUsers.get('01700000000') || {
-    _id: DEMO_USER_ID,
-    id: DEMO_USER_ID,
-    name: 'Guest Farmer',
-    mobile: '01700000000',
-    role: 'farmer'
-  };
-  const token = generateToken(guestUser);
-  return res.json({
-    success: true,
-    token,
-    user: guestUser
+  return res.status(403).json({
+    success: false,
+    message: 'Guest login is disabled. Please create an account or sign in to continue.'
   });
 });
 

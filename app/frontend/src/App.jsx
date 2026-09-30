@@ -28,6 +28,8 @@ import EmployeeSupport from './components/EmployeeSupport';
 import SmartPoultry from './components/SmartPoultry';
 import DoctorDirectory from './components/DoctorDirectory';
 import AdminPanel from './components/AdminPanel';
+import FarmAdvantageGate from './components/FarmAdvantageGate';
+import DiseaseAdvantageGate from './components/DiseaseAdvantageGate';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
   Feather,
@@ -58,7 +60,7 @@ const queryClient = new QueryClient({
 });
 
 const MainApp = () => {
-  const { user, login, logout, language, toggleLanguage, loading, loginGuest } = useContext(AuthContext);
+  const { user, login, logout, language, toggleLanguage, loading } = useContext(AuthContext);
 
   const getInitialTab = () => {
     if (typeof window !== 'undefined') {
@@ -128,13 +130,6 @@ const MainApp = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [userMenuOpen]);
 
-  const handleGuestAccess = async () => {
-    try {
-      if (loginGuest) await loginGuest();
-    } catch (_) {}
-    setSkipAuth(true);
-  };
-
   const handlePredictionSaved = () => {
     setHistoryTrigger(prev => prev + 1);
   };
@@ -146,15 +141,8 @@ const MainApp = () => {
     }
   };
 
-  // Navigate to Your Farm — if not authenticated, redirect to login first
+  // Navigate to Your Farm
   const handleYourFarmClick = () => {
-    if (!user && !skipAuth) {
-      setAuthView('login');
-      setSkipAuth(false);
-      // store intent so after login we return to your-farm
-      sessionStorage.setItem('loginRedirect', 'your-farm');
-      return;
-    }
     setActiveTab('your-farm');
   };
 
@@ -178,7 +166,6 @@ const MainApp = () => {
     doctors: language === 'bn' ? 'ডাক্তার' : 'Doctors',
     employee: language === 'bn' ? 'কর্মচারী টুলস' : 'Employee Tools',
     logout: language === 'bn' ? 'বাহির হন' : 'Log Out',
-    demoAccess: language === 'bn' ? 'লগইন ছাড়া ব্যবহার করুন →' : 'Continue as Guest / Open Access →',
     subtitle: language === 'bn' ? 'স্মার্ট পোল্ট্রি স্বাস্থ্য, বাণিজ্য ও লাভ পূর্বাভাস' : 'Smart Poultry Health, Trade & Financial Intelligence'
   };
 
@@ -240,14 +227,7 @@ const MainApp = () => {
               ← Back to AgriMind Home
             </button>
             <button
-              onClick={async () => {
-                if (login) {
-                  const res = await login('01999999999', 'password123');
-                  if (res && res.success) {
-                    setActiveTab('admin');
-                    return;
-                  }
-                }
+              onClick={() => {
                 setAuthView('login');
                 setSkipAuth(false);
                 sessionStorage.setItem('loginRedirect', 'admin');
@@ -256,7 +236,8 @@ const MainApp = () => {
               }}
               className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 text-xs font-bold transition-all shadow-lg shadow-emerald-950/40 cursor-pointer flex items-center gap-1.5"
             >
-              <span>🛡️ 1-Click Admin Login →</span>
+              <Shield className="w-3.5 h-3.5" />
+              <span>Sign In as Administrator →</span>
             </button>
           </div>
         </div>
@@ -274,42 +255,46 @@ const MainApp = () => {
     );
   }
 
-  // Unauthenticated Gate (shown when login is required, e.g. clicking Your Farm)
+  // Unauthenticated Gate (shown when login/register view is triggered)
   if (!user && !skipAuth) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-between">
-        <div className="p-4 flex items-center justify-between border-b border-slate-900 bg-slate-950">
+        <div className="p-4 px-6 flex items-center justify-between border-b border-slate-900 bg-slate-950/90 backdrop-blur-md sticky top-0 z-50">
           <button
             onClick={() => { setSkipAuth(true); setActiveTab('home'); }}
-            className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center gap-1.5 transition-colors"
+            className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             ← Back to Home
           </button>
-          <button
-            onClick={handleGuestAccess}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors"
-          >
-            {t.demoAccess}
-          </button>
+          <div className="flex items-center gap-2">
+            {authView === 'login' ? (
+              <button
+                onClick={() => setAuthView('register')}
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+              >
+                Create Account →
+              </button>
+            ) : (
+              <button
+                onClick={() => setAuthView('login')}
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-bold transition-colors cursor-pointer"
+              >
+                Sign In →
+              </button>
+            )}
+          </div>
         </div>
         {authView === 'login' ? (
           <LoginPage
             onNavigateToRegister={() => setAuthView('register')}
-            onSkip={handleGuestAccess}
           />
         ) : (
           <RegisterPage
             onNavigateToLogin={() => setAuthView('login')}
-            onSkip={handleGuestAccess}
           />
         )}
         <div className="py-4 text-center border-t border-slate-900 bg-slate-950">
-          <button
-            onClick={handleGuestAccess}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
-          >
-            {t.demoAccess}
-          </button>
+          <p className="text-xs text-slate-500">AgriMind • Unified Poultry Health &amp; Intelligence</p>
         </div>
       </div>
     );
@@ -453,12 +438,20 @@ const MainApp = () => {
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => { setAuthView('login'); setSkipAuth(false); }}
-                className="px-4 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-colors shadow-md shadow-emerald-950/40"
-              >
-                Log in
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setAuthView('login'); setSkipAuth(false); }}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { setAuthView('register'); setSkipAuth(false); }}
+                  className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold transition-all shadow-md shadow-emerald-950/40 hover:scale-[1.02] cursor-pointer"
+                >
+                  Sign Up
+                </button>
+              </div>
             )}
 
             {/* Hamburger (mobile) */}
@@ -515,12 +508,20 @@ const MainApp = () => {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => { setAuthView('login'); setSkipAuth(false); setMobileMenuOpen(false); }}
-                className="w-full py-4 rounded-2xl bg-emerald-500 text-slate-950 font-bold text-sm"
-              >
-                Log in
-              </button>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  onClick={() => { setAuthView('login'); setSkipAuth(false); setMobileMenuOpen(false); }}
+                  className="w-full py-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 font-bold text-xs hover:bg-slate-800 transition-colors text-center cursor-pointer"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { setAuthView('register'); setSkipAuth(false); setMobileMenuOpen(false); }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs hover:from-emerald-400 hover:to-teal-400 transition-colors text-center shadow-lg shadow-emerald-950/40 cursor-pointer"
+                >
+                  Sign Up
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -539,29 +540,81 @@ const MainApp = () => {
             />
           )}
           {activeTab === 'your-farm' && (
-            <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <SmartPoultry
-                activeFarmId={activeFarmId}
-                setActiveFarmId={setActiveFarmId}
-                setActiveTab={setActiveTab}
+            user ? (
+              <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <SmartPoultry
+                  activeFarmId={activeFarmId}
+                  setActiveFarmId={setActiveFarmId}
+                  setActiveTab={setActiveTab}
+                />
+              </div>
+            ) : (
+              <FarmAdvantageGate
+                onSignIn={() => {
+                  sessionStorage.setItem('loginRedirect', 'your-farm');
+                  setAuthView('login');
+                  setSkipAuth(false);
+                }}
+                onSignUp={() => {
+                  sessionStorage.setItem('loginRedirect', 'your-farm');
+                  setAuthView('register');
+                  setSkipAuth(false);
+                }}
+                onExploreMarketplace={() => setActiveTab('market')}
               />
-            </div>
+            )
           )}
           {activeTab === 'market' && (
             <Marketplace
               activeFarmId={activeFarmId}
               setActiveTab={setActiveTab}
-              onOpenRegisterFarm={() => setActiveTab('your-farm')}
+              onOpenRegisterFarm={() => {
+                if (!user) {
+                  sessionStorage.setItem('loginRedirect', 'your-farm');
+                  setAuthView('register');
+                  setSkipAuth(false);
+                } else {
+                  setActiveTab('your-farm');
+                }
+              }}
+              onRequireAuth={() => {
+                sessionStorage.setItem('loginRedirect', 'market');
+                setAuthView('login');
+                setSkipAuth(false);
+              }}
             />
           )}
           {activeTab === 'disease' && (
-            <DiseaseDetection
-              onPredictionSaved={handlePredictionSaved}
-              farmId={activeFarmId}
-            />
+            user ? (
+              <DiseaseDetection
+                onPredictionSaved={handlePredictionSaved}
+                farmId={activeFarmId}
+              />
+            ) : (
+              <DiseaseAdvantageGate
+                onSignIn={() => {
+                  sessionStorage.setItem('loginRedirect', 'disease');
+                  setAuthView('login');
+                  setSkipAuth(false);
+                }}
+                onSignUp={() => {
+                  sessionStorage.setItem('loginRedirect', 'disease');
+                  setAuthView('register');
+                  setSkipAuth(false);
+                }}
+                onExploreMarketplace={() => setActiveTab('market')}
+              />
+            )
           )}
           {activeTab === 'doctors' && (
-            <DoctorDirectory user={user} onLoginRequired={() => { setAuthView('login'); setSkipAuth(false); }} />
+            <DoctorDirectory
+              user={user}
+              onLoginRequired={() => {
+                sessionStorage.setItem('loginRedirect', 'doctors');
+                setAuthView('login');
+                setSkipAuth(false);
+              }}
+            />
           )}
           {activeTab === 'history' && (
             <PredictionHistory

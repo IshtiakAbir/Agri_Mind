@@ -27,7 +27,7 @@ import {
   Sparkles
 } from 'lucide-react';
 
-const RegisterPage = ({ onNavigateToLogin, onSkip }) => {
+const RegisterPage = ({ onNavigateToLogin }) => {
   const { register, language, toggleLanguage } = useContext(AuthContext);
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -341,15 +341,6 @@ const RegisterPage = ({ onNavigateToLogin, onSkip }) => {
                     <LogIn className="w-4 h-4" />
                     <span>{t.loginBtn}</span>
                   </button>
-                  {onSkip && (
-                    <button
-                      onClick={onSkip}
-                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-bold text-xs transition-all cursor-pointer"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{language === 'bn' ? 'লগইন ছাড়া প্রবেশ' : 'Guest Access'}</span>
-                    </button>
-                  )}
                 </div>
               </div>
 
