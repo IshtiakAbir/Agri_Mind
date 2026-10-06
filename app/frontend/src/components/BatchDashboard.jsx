@@ -32,13 +32,10 @@ import { AuthContext } from '../context/AuthContext';
 import StatusBanner from './StatusBanner';
 import AgeEnvironmentCard from './AgeEnvironmentCard';
 import GuidanceBox from './GuidanceBox';
-import MilestoneTimeline from './MilestoneTimeline';
-import DailyCheckInCard from './DailyCheckInCard';
 import BatchWizard from './BatchWizard';
 import BatchCloseModal from './BatchCloseModal';
 import PoultryBatchDashboard from './PoultryBatchDashboard';
 import ErrorBoundary from './ErrorBoundary';
-import { CalendarDays } from 'lucide-react';
 
 export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   const {
@@ -54,15 +51,6 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   const { language } = useContext(AuthContext);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
-  const [showCalendarView, setShowCalendarView] = useState(false);
-
-  if (showCalendarView) {
-    return (
-      <PoultryBatchDashboard
-        onBackToOperations={() => setShowCalendarView(false)}
-      />
-    );
-  }
 
   // If no batches exist for farmer
   if (!loading && batches.length === 0) {
@@ -144,14 +132,6 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setShowCalendarView(true)}
-            className="px-3.5 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
-            Calendar & Check-in View
-          </button>
-
-          <button
             onClick={() => refreshActiveBatch()}
             title="Refresh flock telemetry"
             className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs transition-colors cursor-pointer"
@@ -188,8 +168,17 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
         />
       </ErrorBoundary>
 
-      {/* ─── Row 1: Age & Environment Card + Rolling Profit Forecast Card ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ─── Core Calendar-Driven Daily Check-in & Predictive Reminders System ─── */}
+      <ErrorBoundary fallbackTitle="Flock Calendar & Check-in System Unavailable">
+        <PoultryBatchDashboard
+          batch={currentBatch}
+          dashboardData={dashboardData}
+          onRefresh={refreshActiveBatch}
+        />
+      </ErrorBoundary>
+
+      {/* ─── Environmental Telemetry & Rolling Profit Forecast ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
         <div className="lg:col-span-2">
           <ErrorBoundary fallbackTitle="Flock Environment Card Unavailable">
             <AgeEnvironmentCard
@@ -261,33 +250,13 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
         </ErrorBoundary>
       </div>
 
-      {/* ─── Row 2: Daily Check-In Workflow & Guidance Box ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ErrorBoundary fallbackTitle="Daily Check-In Card Unavailable">
-          <DailyCheckInCard
-            batch={currentBatch}
-            todayLog={dashboardData?.todayLog}
-            onLogSubmitted={() => {
-              refreshActiveBatch();
-            }}
-          />
-        </ErrorBoundary>
-
+      {/* ─── Lifecycle Guidance Advice ─── */}
+      <div>
         <ErrorBoundary fallbackTitle="Lifecycle Guidance Unavailable">
           <GuidanceBox
             stage={stage}
             batch={currentBatch}
             tasksDue={tasksDue}
-          />
-        </ErrorBoundary>
-      </div>
-
-      {/* ─── Row 3: Milestone Timeline ─── */}
-      <div>
-        <ErrorBoundary fallbackTitle="Milestone Timeline Unavailable">
-          <MilestoneTimeline
-            tasks={tasksDue}
-            batchId={currentBatch?._id}
           />
         </ErrorBoundary>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon,
   CalendarDays,
@@ -12,43 +12,101 @@ import {
   Wind,
   Activity,
   ClipboardCheck,
-  TrendingDown,
   ChevronLeft,
   ChevronRight,
   Bell,
   Sparkles,
   Bird,
-  Info,
   ShieldCheck,
   Package,
   RotateCcw,
-  Layers,
-  ArrowRight
+  ArrowRight,
+  CalendarCheck2
 } from 'lucide-react';
 
-export default function PoultryBatchDashboard({ onBackToOperations }) {
-  // ─── Batch Metadata & Configuration ──────────────────────────────────────────
-  const [batchInfo, setBatchInfo] = useState({
-    batchNumber: 'Batch #A-104',
-    breed: 'Cobb 500 (Broiler)',
-    farmName: 'Gazipur Green Agro — Shed 02',
-    startDate: '2026-10-06', // ISO date: YYYY-MM-DD
-    initialFlockSize: 2500,
-    currentLiveBirds: 2488,
-    targetHarvestDays: 35,
-    targetHarvestWeight: '2.10 kg'
-  });
+/**
+ * =============================================================================
+ * Module: Poultry Batch Calendar & Dynamic Daily Check-in System
+ * Component: /app/frontend/src/components/PoultryBatchDashboard.jsx
+ * Description: Interactive calendar-driven daily check-in, dynamic flock age
+ *              updating automatically based on placement date, and predictive
+ *              task reminders embedded directly in Batch Operations.
+ * =============================================================================
+ */
+export default function PoultryBatchDashboard({
+  batch = null,
+  dashboardData = null,
+  onRefresh = null
+}) {
+  // ─── 1. Batch Identity & Dynamic Placement Date ─────────────────────────────
+  // Defaults to Batch #A-104 placed on 2026-10-06 unless passed from BatchContext
+  const initialStartDate = useMemo(() => {
+    if (batch?.batchStartDate) {
+      try {
+        return new Date(batch.batchStartDate).toISOString().split('T')[0];
+      } catch (_) {}
+    }
+    return batch?.startDate || '2026-10-06';
+  }, [batch]);
 
-  // Current simulated calendar anchor: October 2026
-  // Default selected date: Oct 7, 2026 (Day 2 of flock)
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [referenceDate, setReferenceDate] = useState('2026-10-07'); // Default simulated "Today" anchor
+
+  useEffect(() => {
+    if (initialStartDate) {
+      setStartDate(initialStartDate);
+    }
+  }, [initialStartDate]);
+
+  const batchInfo = useMemo(() => {
+    return {
+      batchNumber: batch?.batchName || 'Batch #A-104',
+      breed: batch?.chickenType ? `${batch.chickenType} (Broiler)` : 'Cobb 500 (Broiler)',
+      farmName: batch?.farmName || 'Gazipur Green Agro — Shed 02',
+      initialFlockSize: batch?.initialChickens || 2500,
+      currentLiveBirds: dashboardData?.metrics?.liveBirds ?? (batch?.initialChickens ? Math.max(0, batch.initialChickens - (batch?.cumulativeMortality || 12)) : 2488),
+      targetHarvestDays: batch?.cycleLengthDays || 35,
+      targetHarvestWeight: `${batch?.targetHarvestWeightKg || 2.10} kg`
+    };
+  }, [batch, dashboardData]);
+
+  // Selected date on the interactive calendar
   const [selectedDateStr, setSelectedDateStr] = useState('2026-10-07');
-  const [currentMonth, setCurrentMonth] = useState({ year: 2026, month: 9 }); // 0-indexed: 9 = October
+  
+  // Calendar month state: initialized to the month of the selected date (October 2026 = month 9)
+  const [currentMonth, setCurrentMonth] = useState({ year: 2026, month: 9 });
 
-  // Today reference date in 2026
-  const todayStr = '2026-10-07';
+  // ─── 2. Flock Age Calculation Engine (Date Driven) ─────────────────────────
+  /**
+   * Calculates flock age in calendar days based on target date and start date.
+   * Arrival / Placement day is considered Day 1.
+   */
+  const calculateFlockAgeDays = (targetDateStr, baseStartDate = startDate) => {
+    if (!targetDateStr || !baseStartDate) return 1;
+    try {
+      const [ty, tm, td] = targetDateStr.split('-').map(Number);
+      const [sy, sm, sd] = baseStartDate.split('-').map(Number);
+      const targetUtc = Date.UTC(ty, tm - 1, td);
+      const startUtc = Date.UTC(sy, sm - 1, sd);
+      const diffMs = targetUtc - startUtc;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      return Math.max(1, diffDays + 1);
+    } catch {
+      return 1;
+    }
+  };
 
-  // ─── Calendar Logs Database State ─────────────────────────────────────────
-  // Dates pre-populated with daily check-ins
+  // Flock Age for Reference Date ("Today")
+  const currentFlockAgeDays = useMemo(() => {
+    return calculateFlockAgeDays(referenceDate, startDate);
+  }, [referenceDate, startDate]);
+
+  // Flock Age for the currently clicked date on the calendar
+  const selectedFlockAgeDays = useMemo(() => {
+    return calculateFlockAgeDays(selectedDateStr, startDate);
+  }, [selectedDateStr, startDate]);
+
+  // ─── 3. Daily Check-in Database State ──────────────────────────────────────
   const [logs, setLogs] = useState({
     '2026-10-06': {
       completed: true,
@@ -59,10 +117,10 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       waterFlushed: true,
       ventilationChecked: true,
       litterChecked: true,
-      notes: 'Chicks received at 08:30 AM. Pre-warmed brooder at 33°C. Uniform vitality.'
+      notes: 'Day-old chicks arrived at 08:30 AM. Brooder pre-heated to 33°C. High initial vitality.'
     },
     '2026-10-07': {
-      completed: false, // Incomplete / Pending for today
+      completed: false, // Pending for today
       mortality: 5,
       feedConsumed: 110,
       waterIntake: 260,
@@ -74,7 +132,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
     }
   });
 
-  // ─── Scheduled Task Reminders Pipeline ───────────────────────────────────────
+  // ─── 4. Predictive Task Reminders Pipeline ──────────────────────────────────
   const [tasks, setTasks] = useState([
     {
       id: 'task-1',
@@ -85,7 +143,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       icon: Syringe,
       badge: 'Due Tomorrow',
       badgeColor: 'amber',
-      notes: 'Eye-drop or coarse spray administration. Prepare clean skim milk stabiliser.'
+      notes: 'Eye-drop or coarse spray route. Prepare skim milk stabiliser in clean non-chlorinated water.'
     },
     {
       id: 'task-2',
@@ -96,7 +154,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       icon: Scale,
       badge: 'Upcoming',
       badgeColor: 'blue',
-      notes: 'Sample 50 birds across 4 pen quadrants to assess day 5 growth curve.'
+      notes: 'Sample 50 birds across 4 pen quadrants to evaluate initial growth rate against Cobb 500 curve.'
     },
     {
       id: 'task-3',
@@ -107,7 +165,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       icon: Syringe,
       badge: 'Critical Vaccine',
       badgeColor: 'rose',
-      notes: 'Drinking water route with 2-hour water starvation prior to release.'
+      notes: 'Drinking water route with 2 hours water withholding before administration.'
     },
     {
       id: 'task-4',
@@ -118,7 +176,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       icon: Wheat,
       badge: 'Upcoming',
       badgeColor: 'indigo',
-      notes: '50/50 blend of Crumble Starter and Grower Pellets for 48 hours.'
+      notes: '50/50 blend of Crumble Starter and Grower Pellets for 48 hours before full switch.'
     },
     {
       id: 'task-5',
@@ -128,8 +186,8 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       category: 'Environment',
       icon: Wind,
       badge: 'Upcoming',
-      badgeColor: 'slate',
-      notes: 'Increase minimum ventilation CFM per bird to prevent ammonia build-up.'
+      badgeColor: 'emerald',
+      notes: 'Increase minimum ventilation CFM per bird to manage respiratory moisture and ammonia.'
     },
     {
       id: 'task-6',
@@ -144,13 +202,13 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
     }
   ]);
 
-  // Temporary Form State for the active check-in panel
+  // Active form values for the selected date
   const activeLog = logs[selectedDateStr] || {
     completed: false,
-    mortality: 0,
-    feedConsumed: 0,
-    waterIntake: 0,
-    avgWeight: 0,
+    mortality: '',
+    feedConsumed: '',
+    waterIntake: '',
+    avgWeight: '',
     waterFlushed: false,
     ventilationChecked: false,
     litterChecked: false,
@@ -160,10 +218,9 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
   const [formValues, setFormValues] = useState(activeLog);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
-  // Sync form state when user selects another date on the calendar
-  const handleSelectDate = (dateKey) => {
-    setSelectedDateStr(dateKey);
-    const existing = logs[dateKey] || {
+  // Sync form values whenever selected date changes
+  useEffect(() => {
+    const existing = logs[selectedDateStr] || {
       completed: false,
       mortality: '',
       feedConsumed: '',
@@ -176,29 +233,8 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
     };
     setFormValues(existing);
     setSaveSuccessNotice(false);
-  };
+  }, [selectedDateStr, logs]);
 
-  // ─── Mathematical Age Calculation Helpers ────────────────────────────────────
-  const parseDateUTC = (dateStr) => {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(Date.UTC(y, m - 1, d));
-  };
-
-  const calculateFlockAge = (dateStr) => {
-    const target = parseDateUTC(dateStr);
-    const start = parseDateUTC(batchInfo.startDate);
-    const diffTime = target - start;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // Day 1 on start date
-    return diffDays;
-  };
-
-  // Flock age on today (2026-10-07)
-  const currentFlockAgeDays = calculateFlockAge(todayStr);
-
-  // Selected date age
-  const selectedFlockAge = calculateFlockAge(selectedDateStr);
-
-  // ─── Form Submission Handler ─────────────────────────────────────────────────
   const handleFormChange = (field, value) => {
     setFormValues(prev => ({ ...prev, [field]: value }));
   };
@@ -217,10 +253,10 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       }
     }));
     setSaveSuccessNotice(true);
-    setTimeout(() => setSaveSuccessNotice(false), 3500);
+    setTimeout(() => setSaveSuccessNotice(false), 3000);
   };
 
-  // ─── Calendar Generation Logic (Month View) ──────────────────────────────────
+  // ─── 5. Calendar Generation (Month Matrix) ──────────────────────────────────
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -264,7 +300,7 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
       });
     }
 
-    // Trailing days padding to 35 or 42 cells
+    // Trailing days padding
     const remaining = (7 - (days.length % 7)) % 7;
     for (let r = 1; r <= remaining; r++) {
       const nextMonthIdx = month === 11 ? 0 : month + 1;
@@ -296,9 +332,9 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
   };
 
   const handleResetToToday = () => {
-    setCurrentMonth({ year: 2026, month: 9 });
-    setSelectedDateStr(todayStr);
-    handleSelectDate(todayStr);
+    const [ry, rm] = referenceDate.split('-').map(Number);
+    setCurrentMonth({ year: ry, month: rm - 1 });
+    setSelectedDateStr(referenceDate);
   };
 
   // Map tasks by date for fast indicator dot rendering
@@ -311,610 +347,532 @@ export default function PoultryBatchDashboard({ onBackToOperations }) {
     return map;
   }, [tasks]);
 
-  const formattedSelectedHeader = useMemo(() => {
-    const [y, m, d] = selectedDateStr.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const formattedSelectedDate = useMemo(() => {
+    try {
+      const [y, m, d] = selectedDateStr.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    } catch {
+      return selectedDateStr;
+    }
   }, [selectedDateStr]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-16 selection:bg-indigo-500 selection:text-white">
-      {/* ─── Top SaaS Breadcrumb & Controls Bar ─── */}
-      <div className="border-b border-slate-200/80 bg-white/95 backdrop-blur-md sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
-              <Bird className="w-5 h-5" />
+    <div className="space-y-6 text-slate-100 font-sans animate-fade-in">
+      {/* ─── 1. Top Batch Header & Dynamic Flock Age Widget ─── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-indigo-500/10 via-emerald-500/5 to-transparent pointer-events-none rounded-full blur-3xl -mr-20 -mt-20" />
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10">
+          {/* Left Column: Batch Identity & Placement Date Config */}
+          <div className="md:col-span-7 space-y-3.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-mono font-extrabold text-xs shadow-md tracking-wider">
+                {batchInfo.batchNumber}
+              </span>
+              <span className="px-2.5 py-1 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 text-xs font-semibold">
+                {batchInfo.breed}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                {batchInfo.farmName}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Flock Telemetry</span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Cycle Active
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-1">
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Placement Date
                 </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <CalendarDays className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    title="Change placement start date to test dynamic flock age calculation"
+                    className="bg-slate-950 border border-slate-800 text-slate-100 text-xs font-bold rounded-lg px-2 py-1 focus:border-emerald-500 focus:outline-none transition-colors cursor-pointer"
+                  />
+                </div>
               </div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                Poultry Batch Operations Hub
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600">
-                  v2.6 Enterprise
+
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Flock Population
                 </span>
-              </h1>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Bird className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-bold text-slate-200">
+                    {batchInfo.currentLiveBirds.toLocaleString()} Birds
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Target Harvest
+                </span>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Clock className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-bold text-slate-200">
+                    Day {batchInfo.targetHarvestDays} ({batchInfo.targetHarvestWeight})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Date Calculation Breakdown Note */}
+            <div className="pt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+              <span className="text-slate-500">Date Calculation:</span>
+              <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-emerald-400">
+                Start: {startDate}
+              </span>
+              <span>➔</span>
+              <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-indigo-300">
+                Today: {referenceDate}
+              </span>
+              <span>=</span>
+              <span className="font-bold text-slate-200">
+                Day {currentFlockAgeDays} of {batchInfo.targetHarvestDays}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            {onBackToOperations && (
-              <button
-                onClick={onBackToOperations}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-xs font-semibold transition-all cursor-pointer"
-              >
-                ← Back to Farm Overview
-              </button>
-            )}
-            <div className="hidden sm:flex items-center gap-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 text-xs font-medium text-slate-600">
-              <span className="px-2.5 py-1 rounded-lg bg-white shadow-xs font-bold text-slate-800">
-                Calendar View
-              </span>
-              <span className="px-2.5 py-1 text-slate-500 hover:text-slate-800 cursor-pointer transition-colors">
-                Metric Logs
-              </span>
+          {/* Right Column: Prominent Dynamic Flock Age Widget */}
+          <div className="md:col-span-5 flex justify-start md:justify-end">
+            <div className="w-full sm:w-auto min-w-[280px] bg-gradient-to-br from-indigo-950/50 via-slate-900 to-emerald-950/30 border-2 border-indigo-500/40 rounded-2xl p-4 sm:p-5 shadow-2xl relative">
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-[11px] uppercase tracking-wider font-extrabold text-indigo-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  Dynamic Flock Age
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Auto-Updates
+                </span>
+              </div>
+
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">
+                  Flock Age: {currentFlockAgeDays}
+                </span>
+                <span className="text-sm sm:text-base font-bold text-indigo-400">
+                  Days
+                </span>
+              </div>
+
+              <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between gap-4">
+                <span>Cycle Progress:</span>
+                <span className="font-bold text-emerald-400">
+                  {Math.min(100, Math.round((currentFlockAgeDays / batchInfo.targetHarvestDays) * 100))}%
+                </span>
+              </div>
+
+              {/* Progress bar towards harvest */}
+              <div className="w-full bg-slate-950 rounded-full h-2 mt-2 overflow-hidden border border-slate-800">
+                <div
+                  className="bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-400 h-2 rounded-full transition-all duration-500 shadow-sm shadow-emerald-500/50"
+                  style={{ width: `${Math.min(100, Math.round((currentFlockAgeDays / batchInfo.targetHarvestDays) * 100))}%` }}
+                />
+              </div>
+
+              <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
+                <span>Calculated from Start Date</span>
+                <span className="text-indigo-300 font-mono">Day {currentFlockAgeDays}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* ─── 1. Top Dashboard Header ─── */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-indigo-50/50 via-emerald-50/20 to-transparent pointer-events-none rounded-full blur-3xl -mr-20 -mt-20" />
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10">
-            {/* Left Column: Batch Identity Details */}
-            <div className="md:col-span-7 space-y-3">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="px-3 py-1 rounded-lg bg-indigo-600 text-white font-mono font-bold text-xs shadow-xs tracking-wide">
-                  {batchInfo.batchNumber}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold">
-                  {batchInfo.breed}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  {batchInfo.farmName}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-1">
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                    Placement Date
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <CalendarDays className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-800">
-                      Oct 6, 2026
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                    Placed Flock Size
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Bird className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-800">
-                      {batchInfo.initialFlockSize.toLocaleString()} Birds
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                    Target Harvest
-                  </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Clock className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm font-bold text-slate-800">
-                      Day {batchInfo.targetHarvestDays} ({batchInfo.targetHarvestWeight})
-                    </span>
-                  </div>
-                </div>
-              </div>
+      {/* ─── 2. Main Content Split View (Calendar Grid + Daily Check-in & Tasks) ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ─── Left Area: Large Interactive Calendar (lg:col-span-7) ─── */}
+        <div className="lg:col-span-7 xl:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+          {/* Month Header & Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-indigo-400" />
+                {monthNames[currentMonth.month]} {currentMonth.year}
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Click any date to inspect routine records, view day age, or submit daily check-in.
+              </p>
             </div>
 
-            {/* Right Column: Prominent Styled Widget for Current Flock Age */}
-            <div className="md:col-span-5 flex justify-start md:justify-end">
-              <div className="w-full sm:w-auto bg-gradient-to-br from-indigo-50/80 via-white to-emerald-50/40 border-2 border-indigo-200/80 rounded-2xl p-4 sm:p-5 shadow-xs relative">
-                <div className="flex items-center justify-between gap-6 mb-2">
-                  <span className="text-[11px] uppercase tracking-wider font-bold text-indigo-700 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                    Live Bio-Telemetry
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-white/80 px-2 py-0.5 rounded-full border border-slate-200/60 shadow-2xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Auto-Calculated
-                  </span>
-                </div>
-
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-                    Flock Age: {currentFlockAgeDays}
-                  </span>
-                  <span className="text-sm sm:text-base font-bold text-indigo-600">
-                    Days
-                  </span>
-                </div>
-
-                <div className="mt-2 text-[11px] text-slate-500 flex items-center justify-between gap-4">
-                  <span>Start: Oct 6, 2026</span>
-                  <span className="font-semibold text-slate-700">Day {currentFlockAgeDays} of {batchInfo.targetHarvestDays}</span>
-                </div>
-
-                {/* Micro progress meter towards harvest */}
-                <div className="w-full bg-slate-200/80 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-1.5 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.round((currentFlockAgeDays / batchInfo.targetHarvestDays) * 100))}%` }}
-                  />
-                </div>
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <button
+                onClick={handleResetToToday}
+                className="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+              >
+                Today
+              </button>
+              <div className="flex items-center rounded-xl border border-slate-800 bg-slate-950 p-0.5">
+                <button
+                  onClick={handlePrevMonth}
+                  title="Previous Month"
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleNextMonth}
+                  title="Next Month"
+                  className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
+          </div>
+
+          {/* Calendar Status Legend */}
+          <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 bg-slate-950/60 px-3.5 py-2.5 rounded-xl border border-slate-800">
+            <span className="flex items-center gap-1.5 font-medium text-slate-300">
+              <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-[9px]">
+                ✓
+              </span>
+              Completed Day
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-slate-300">
+              <span className="w-3.5 h-3.5 rounded-md border-2 border-indigo-500 bg-indigo-500/20" />
+              Pending / Today
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              Vaccine
+            </span>
+            <span className="flex items-center gap-1.5 font-medium text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-blue-400" />
+              Weighing / Task
+            </span>
+          </div>
+
+          {/* Days of Week Header (Mon - Sun) */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+              <div key={day} className="py-1">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Interactive Calendar Days Grid */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+            {calendarDays.map((cell, idx) => {
+              const isSelected = cell.dateStr === selectedDateStr;
+              const isToday = cell.dateStr === referenceDate;
+              const logData = logs[cell.dateStr];
+              const isCompleted = Boolean(logData?.completed);
+              const cellTasks = tasksByDate[cell.dateStr] || [];
+              const cellFlockAge = calculateFlockAgeDays(cell.dateStr, startDate);
+
+              return (
+                <button
+                  key={`${cell.dateStr}-${idx}`}
+                  onClick={() => setSelectedDateStr(cell.dateStr)}
+                  disabled={cell.isPadding}
+                  className={`min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl text-left flex flex-col justify-between transition-all relative cursor-pointer ${
+                    cell.isPadding
+                      ? 'opacity-20 bg-transparent border border-transparent cursor-not-allowed'
+                      : isSelected
+                      ? 'bg-slate-950 border-2 border-indigo-500 shadow-lg shadow-indigo-950/80 ring-2 ring-indigo-500/30'
+                      : isCompleted
+                      ? 'bg-slate-950/80 border border-emerald-500/40 hover:border-emerald-500'
+                      : isToday
+                      ? 'bg-slate-950 border-2 border-indigo-400/80 hover:border-indigo-400'
+                      : 'bg-slate-950/40 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/50'
+                  }`}
+                >
+                  {/* Top Row: Date Number + Completed Checkmark / Status Icon */}
+                  <div className="flex items-center justify-between w-full">
+                    <span className={`text-xs sm:text-sm font-bold ${
+                      isSelected
+                        ? 'text-indigo-400 font-extrabold'
+                        : isToday
+                        ? 'text-indigo-300 font-extrabold'
+                        : 'text-slate-300'
+                    }`}>
+                      {cell.dayNumber}
+                    </span>
+
+                    {/* Completion status indicator */}
+                    {isCompleted ? (
+                      <span
+                        title="Completed Daily Routine"
+                        className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-[9px] shadow-xs"
+                      >
+                        ✓
+                      </span>
+                    ) : isToday ? (
+                      <span
+                        title="Pending Routine for Today"
+                        className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"
+                      />
+                    ) : null}
+                  </div>
+
+                  {/* Middle Row: Flock Age Tag (Calculated dynamically) */}
+                  {!cell.isPadding && (
+                    <div className="my-0.5">
+                      <span className={`text-[9px] sm:text-[10px] px-1 py-0.2 rounded font-mono block truncate ${
+                        isSelected
+                          ? 'bg-indigo-500/20 text-indigo-300 font-bold'
+                          : isCompleted
+                          ? 'text-emerald-400/90'
+                          : 'text-slate-500'
+                      }`}>
+                        Day {cellFlockAge}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Bottom Row: Scheduled Task Indicator Dots */}
+                  <div className="flex items-center gap-1 w-full overflow-hidden h-3">
+                    {cellTasks.slice(0, 3).map((task, tIdx) => {
+                      let dotColor = 'bg-blue-400';
+                      if (task.category === 'Vaccination') dotColor = 'bg-rose-400';
+                      else if (task.category === 'Nutrition') dotColor = 'bg-indigo-400';
+                      else if (task.category === 'Environment') dotColor = 'bg-emerald-400';
+
+                      return (
+                        <span
+                          key={task.id || tIdx}
+                          title={`${task.category}: ${task.title}`}
+                          className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`}
+                        />
+                      );
+                    })}
+                    {cellTasks.length > 3 && (
+                      <span className="text-[8px] text-slate-500 font-bold leading-none">
+                        +{cellTasks.length - 3}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* ─── 2. Main Content Layout (Grid/Split View) ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* ─── 3. Left Area: Large Interactive Calendar (lg:col-span-7 or 8) ─── */}
-          <div className="lg:col-span-7 xl:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-5">
-            {/* Calendar Controls & Month Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+        {/* ─── Right Column: Stacked Cards for Daily Check-in & Upcoming Reminders (lg:col-span-5) ─── */}
+        <div className="lg:col-span-5 xl:col-span-5 space-y-6">
+          {/* Card 1: Daily Check-in Panel */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5 text-indigo-600" />
-                  {monthNames[currentMonth.month]} {currentMonth.year}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Click any calendar date to review telemetry, inspect routines, or complete the check-in.
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-slate-100">
+                    Daily Check-in
+                  </h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono font-bold">
+                    Day {selectedFlockAgeDays}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Target Date: <strong className="text-slate-200">{formattedSelectedDate}</strong>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-center">
-                <button
-                  onClick={handleResetToToday}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors shadow-2xs cursor-pointer"
-                >
-                  Today
-                </button>
-                <div className="flex items-center rounded-xl border border-slate-200 bg-white shadow-2xs p-0.5">
-                  <button
-                    onClick={handlePrevMonth}
-                    title="Previous Month"
-                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleNextMonth}
-                    title="Next Month"
-                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+              {logs[selectedDateStr]?.completed ? (
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Logged
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                  Pending
+                </span>
+              )}
+            </div>
+
+            {/* Success notification */}
+            {saveSuccessNotice && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Daily record saved! Calendar updated with completed tick.</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCheckIn} className="space-y-4">
+              {/* Telemetry Inputs Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    Mortality (Birds)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 2"
+                    value={formValues.mortality}
+                    onChange={(e) => handleFormChange('mortality', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    Feed Intake (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="e.g. 110"
+                    value={formValues.feedConsumed}
+                    onChange={(e) => handleFormChange('feedConsumed', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    Water Volume (L)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="e.g. 260"
+                    value={formValues.waterIntake}
+                    onChange={(e) => handleFormChange('waterIntake', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                    Avg Weight (g)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="e.g. 58"
+                    value={formValues.avgWeight}
+                    onChange={(e) => handleFormChange('avgWeight', e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* Calendar Legend Bar */}
-            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 bg-slate-50/80 px-3.5 py-2.5 rounded-xl border border-slate-200/60">
-              <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                <span className="w-4 h-4 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center font-bold text-[9px]">
-                  ✓
+              {/* House Hygiene & Biosecurity Checklist */}
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  Biosecurity Verification
                 </span>
-                Completed Day
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-slate-700">
-                <span className="w-3.5 h-3.5 rounded-md border-2 border-indigo-600 bg-indigo-50" />
-                Current / Pending
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-slate-400">
-                <span className="w-3.5 h-3.5 rounded-md bg-slate-100 border border-slate-200" />
-                Future Days
-              </span>
-              <span className="flex items-center gap-1.5 font-medium text-indigo-700">
-                <span className="w-2 h-2 rounded-full bg-indigo-600 ring-2 ring-indigo-200" />
-                Action Task Day
-              </span>
-            </div>
 
-            {/* Days of Week Header */}
-            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-400 uppercase tracking-wider py-1">
-              <span>Mon</span>
-              <span>Tue</span>
-              <span>Wed</span>
-              <span>Thu</span>
-              <span>Fri</span>
-              <span>Sat</span>
-              <span>Sun</span>
-            </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formValues.waterFlushed)}
+                      onChange={(e) => handleFormChange('waterFlushed', e.target.checked)}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900"
+                    />
+                    <span>Nipple drinker water lines flushed</span>
+                  </label>
 
-            {/* Full-Month Interactive Grid */}
-            <div className="grid grid-cols-7 gap-2">
-              {calendarDays.map((cell, idx) => {
-                const isSelected = cell.dateStr === selectedDateStr;
-                const isToday = cell.dateStr === todayStr;
-                const isFuture = cell.dateStr > todayStr;
-                const isBeforeBatch = cell.dateStr < batchInfo.startDate;
+                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formValues.ventilationChecked)}
+                      onChange={(e) => handleFormChange('ventilationChecked', e.target.checked)}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900"
+                    />
+                    <span>Ventilation fans & curtains calibrated</span>
+                  </label>
 
-                const logData = logs[cell.dateStr];
-                const isCompleted = logData?.completed === true;
-                const isCurrentPending = isToday && !isCompleted;
-                const dayTasks = tasksByDate[cell.dateStr] || [];
-                const hasActionTasks = dayTasks.length > 0;
-                const flockAge = calculateFlockAge(cell.dateStr);
+                  <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-slate-700 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formValues.litterChecked)}
+                      onChange={(e) => handleFormChange('litterChecked', e.target.checked)}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900"
+                    />
+                    <span>Litter dryness & ammonia odor verified</span>
+                  </label>
+                </div>
+              </div>
 
-                // Determining styles according to state
-                let cellBg = 'bg-white hover:bg-slate-50 border-slate-200';
-                if (isCompleted) {
-                  cellBg = 'bg-emerald-50/40 border-emerald-200/90 hover:bg-emerald-50/70 text-slate-900';
-                }
-                if (isCurrentPending) {
-                  cellBg = 'bg-indigo-50/40 border-indigo-300 ring-1 ring-indigo-400/40 text-slate-900';
-                }
-                if (isFuture) {
-                  cellBg = 'bg-slate-50/60 border-slate-200/60 text-slate-400 hover:bg-slate-100/60';
-                }
-                if (cell.isPadding) {
-                  cellBg = 'bg-slate-50/30 border-transparent text-slate-300 pointer-events-none opacity-40';
-                }
-                if (isSelected) {
-                  cellBg += ' ring-2 ring-indigo-600 ring-offset-2 border-indigo-600 shadow-sm';
-                }
-
-                return (
-                  <button
-                    key={`${cell.dateStr}-${idx}`}
-                    onClick={() => handleSelectDate(cell.dateStr)}
-                    className={`min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl border flex flex-col justify-between text-left transition-all duration-150 cursor-pointer relative group ${cellBg}`}
-                  >
-                    {/* Top Row: Date Number & Badges */}
-                    <div className="flex items-start justify-between w-full">
-                      <span className={`text-xs sm:text-sm font-bold ${
-                        isToday ? 'text-indigo-600 font-extrabold' : (isCompleted ? 'text-emerald-800' : 'text-slate-700')
-                      }`}>
-                        {cell.dayNumber}
-                      </span>
-
-                      {/* Status indicator badge */}
-                      <div>
-                        {isCompleted && (
-                          <span
-                            title="Day Check-in Complete"
-                            className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] shadow-xs"
-                          >
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </span>
-                        )}
-
-                        {isCurrentPending && (
-                          <span
-                            title="Pending Check-in Today"
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-[9px] font-bold text-amber-800 animate-pulse"
-                          >
-                            Pending
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Middle: Flock Age Marker */}
-                    {flockAge > 0 && !cell.isPadding && (
-                      <div className="my-0.5">
-                        <span className={`text-[10px] font-medium px-1.5 py-0.2 rounded-md ${
-                          isCompleted
-                            ? 'bg-emerald-100/80 text-emerald-800'
-                            : (isToday ? 'bg-indigo-100/80 text-indigo-800 font-bold' : 'text-slate-400 bg-slate-100')
-                        }`}>
-                          Day {flockAge}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Bottom: Action Tasks Indicator Dots */}
-                    <div className="flex items-center gap-1 w-full mt-auto pt-1">
-                      {hasActionTasks && (
-                        <div className="flex items-center gap-1">
-                          {dayTasks.slice(0, 2).map((t, i) => (
-                            <span
-                              key={i}
-                              title={`${t.title} (${t.category})`}
-                              className={`w-2 h-2 rounded-full ${
-                                t.badgeColor === 'rose'
-                                  ? 'bg-rose-500 ring-2 ring-rose-200'
-                                  : (t.badgeColor === 'amber' ? 'bg-amber-500 ring-2 ring-amber-200' : 'bg-indigo-500 ring-2 ring-indigo-200')
-                              }`}
-                            />
-                          ))}
-                          {dayTasks.length > 2 && (
-                            <span className="text-[9px] font-bold text-slate-400">+{dayTasks.length - 2}</span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Small telemetry pill if logged */}
-                      {isCompleted && logData?.mortality !== undefined && (
-                        <span className="text-[9px] text-slate-500 ml-auto hidden sm:inline">
-                          {logData.mortality} mort
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+              {/* Action Button */}
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                {logs[selectedDateStr]?.completed ? 'Update Daily Log' : 'Mark Day as Complete'}
+              </button>
+            </form>
           </div>
 
-          {/* ─── Right Column: Stacked Cards (lg:col-span-5 or 4) ─── */}
-          <div className="lg:col-span-5 xl:col-span-5 space-y-6">
-            {/* ─── 4. Right Column (Top Card) - Daily Check-in Panel ─── */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-5">
-              {/* Card Header with selected date and Flock Age */}
-              <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Flock Operation Record
-                    </span>
-                    {logs[selectedDateStr]?.completed ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1">
-                        <Check className="w-2.5 h-2.5" /> Completed
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
-                        Pending Record
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-0.5">
-                    Check-in for {formattedSelectedHeader}
-                  </h3>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
-                    Calculated Age
-                  </span>
-                  <span className="text-sm font-extrabold text-slate-800">
-                    Day {selectedFlockAge > 0 ? selectedFlockAge : '—'}
-                  </span>
-                </div>
+          {/* Card 2: Upcoming Predictive Reminders */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-100">
+                  Upcoming Reminders
+                </h3>
               </div>
-
-              {/* Success Notification Banner */}
-              {saveSuccessNotice && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs font-semibold text-emerald-800 animate-fadeIn">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  Check-in saved successfully! Calendar updated with verified green mark.
-                </div>
-              )}
-
-              {/* Form Input Fields Grid */}
-              <form onSubmit={handleSaveCheckIn} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3.5">
-                  {/* Field 1: Mortality Count */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
-                      <span>Mortality Count</span>
-                      <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formValues.mortality}
-                        onChange={(e) => handleFormChange('mortality', e.target.value)}
-                        placeholder="0"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        birds
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Field 2: Feed Consumed */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
-                      <span>Feed Consumed</span>
-                      <Wheat className="w-3.5 h-3.5 text-amber-500" />
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={formValues.feedConsumed}
-                        onChange={(e) => handleFormChange('feedConsumed', e.target.value)}
-                        placeholder="110"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        kg
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Field 3: Water Intake */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
-                      <span>Water Intake</span>
-                      <Droplets className="w-3.5 h-3.5 text-blue-500" />
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formValues.waterIntake}
-                        onChange={(e) => handleFormChange('waterIntake', e.target.value)}
-                        placeholder="260"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        Liters
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Field 4: Average Weight */}
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
-                      <span>Avg Weight (Sample)</span>
-                      <Scale className="w-3.5 h-3.5 text-indigo-500" />
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        value={formValues.avgWeight}
-                        onChange={(e) => handleFormChange('avgWeight', e.target.value)}
-                        placeholder="58"
-                        className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors"
-                      />
-                      <span className="text-[11px] font-medium text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                        grams
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Checklist Section */}
-                <div className="pt-2 border-t border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                    Daily Biosecurity & House Checklist
-                  </span>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-slate-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={formValues.waterFlushed}
-                        onChange={(e) => handleFormChange('waterFlushed', e.target.checked)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                      />
-                      <span className="text-xs font-semibold text-slate-700">
-                        Water Lines Flushed & Nipples Inspected
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-slate-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={formValues.ventilationChecked}
-                        onChange={(e) => handleFormChange('ventilationChecked', e.target.checked)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                      />
-                      <span className="text-xs font-semibold text-slate-700">
-                        Ventilation & Airflow Speed Checked
-                      </span>
-                    </label>
-
-                    <label className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 hover:bg-slate-50 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={formValues.litterChecked}
-                        onChange={(e) => handleFormChange('litterChecked', e.target.checked)}
-                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                      />
-                      <span className="text-xs font-semibold text-slate-700">
-                        Litter Moisture & Brooder Temperature Monitored
-                      </span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Mark Day as Complete Primary Button */}
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer hover:shadow-indigo-200 hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <ClipboardCheck className="w-4 h-4" />
-                  Mark Day as Complete
-                </button>
-              </form>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-400 font-mono">
+                {tasks.length} Scheduled
+              </span>
             </div>
 
-            {/* ─── 5. Right Column (Bottom Card) - Upcoming Task Reminders ─── */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
-                    <Bell className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Upcoming Task Reminders
-                    </h3>
-                    <p className="text-[11px] text-slate-400">Predictive schedule grouped by date & age</p>
-                  </div>
-                </div>
+            {/* Vertical Timeline */}
+            <div className="space-y-3">
+              {tasks.map((task) => {
+                const IconComponent = task.icon || Activity;
+                const isSelectedTaskDate = task.date === selectedDateStr;
 
-                <span className="text-[11px] font-bold text-slate-500 px-2 py-0.5 rounded-full bg-slate-100">
-                  {tasks.length} Scheduled
-                </span>
-              </div>
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => setSelectedDateStr(task.date)}
+                    className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                      isSelectedTaskDate
+                        ? 'bg-slate-950 border-indigo-500/80 shadow-md ring-1 ring-indigo-500/20'
+                        : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5">
+                      <IconComponent className="w-4 h-4" />
+                    </div>
 
-              {/* Scrollable list / vertical timeline */}
-              <div className="max-h-[360px] overflow-y-auto pr-1 space-y-3 divide-y divide-slate-100">
-                {tasks.map((task) => {
-                  const IconComponent = task.icon;
-                  return (
-                    <div
-                      key={task.id}
-                      className="pt-3 first:pt-0 flex items-start gap-3 group hover:bg-slate-50/80 p-2 rounded-xl transition-colors"
-                    >
-                      {/* Icon with category color */}
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                        task.badgeColor === 'rose'
-                          ? 'bg-rose-50 border-rose-200 text-rose-600'
-                          : (task.badgeColor === 'amber'
-                              ? 'bg-amber-50 border-amber-200 text-amber-600'
-                              : 'bg-indigo-50 border-indigo-200 text-indigo-600')
-                      }`}>
-                        <IconComponent className="w-4 h-4" />
-                      </div>
-
-                      {/* Content Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5">
-                            {task.date} • <span className="text-indigo-600 font-extrabold">Day {task.flockAge}</span>
-                          </span>
-
-                          {/* Status Badge */}
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                            task.badgeColor === 'rose'
-                              ? 'bg-rose-100 text-rose-700'
-                              : (task.badgeColor === 'amber'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-indigo-100 text-indigo-700')
-                          }`}>
-                            {task.badge}
-                          </span>
-                        </div>
-
-                        <h4 className="text-xs font-bold text-slate-900 mt-1 truncate">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-bold text-slate-100 truncate">
                           {task.title}
                         </h4>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${
+                          task.badgeColor === 'rose'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            : task.badgeColor === 'amber'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : task.badgeColor === 'blue'
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                            : 'bg-slate-800 text-slate-300 border border-slate-700'
+                        }`}>
+                          {task.badge}
+                        </span>
+                      </div>
 
-                        <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
-                          {task.notes}
-                        </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">
+                        {task.notes}
+                      </p>
+
+                      <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-mono">
+                        <span>{task.date}</span>
+                        <span>•</span>
+                        <span className="text-indigo-400 font-semibold">Flock Age: Day {task.flockAge}</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

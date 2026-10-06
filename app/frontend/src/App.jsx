@@ -31,7 +31,6 @@ import AdminPanel from './components/AdminPanel';
 import FarmAdvantageGate from './components/FarmAdvantageGate';
 import DiseaseAdvantageGate from './components/DiseaseAdvantageGate';
 import ProfileModal from './components/ProfileModal';
-import PoultryBatchDashboard from './components/PoultryBatchDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
   Feather,
@@ -326,7 +325,6 @@ const MainApp = () => {
   // Core public nav items — always visible
   const publicNavItems = [
     { id: 'home', label: t.home, icon: Home },
-    { id: 'calendar', label: 'Batch Calendar', icon: CalendarDays },
     { id: 'market', label: t.marketplace, icon: ShoppingBag },
     { id: 'disease', label: t.disease, icon: Activity },
     { id: 'doctors', label: t.doctors, icon: Stethoscope },
@@ -336,10 +334,9 @@ const MainApp = () => {
   // "Your Farm" is special — requires auth
   const yourFarmItem = { id: 'your-farm', label: t.yourFarm, icon: Bird };
 
-  // Full ordered nav: Home | Batch Calendar | Your Farm | Marketplace | Diagnostics | Doctors | Reports
+  // Full ordered nav: Home | Your Farm | Marketplace | Diagnostics | Doctors | Reports
   const allNavItems = [
     { id: 'home', label: t.home, icon: Home },
-    { id: 'calendar', label: 'Batch Calendar', icon: CalendarDays },
     yourFarmItem,
     { id: 'market', label: t.marketplace, icon: ShoppingBag },
     { id: 'disease', label: t.disease, icon: Activity },
@@ -656,11 +653,6 @@ const MainApp = () => {
             <PredictionHistory
               key={historyTrigger}
               farmId={activeFarmId}
-            />
-          )}
-          {(activeTab === 'batch-calendar' || activeTab === 'calendar') && (
-            <PoultryBatchDashboard
-              onBackToOperations={() => setActiveTab('your-farm')}
             />
           )}
           {activeTab === 'employee' && <EmployeeSupport />}
