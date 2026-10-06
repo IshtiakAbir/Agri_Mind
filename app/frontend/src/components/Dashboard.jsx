@@ -45,7 +45,7 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
   const [activeCategory, setActiveCategory] = useState('All');
   const [heroImgError, setHeroImgError] = useState(false);
   const [homeContent, setHomeContent] = useState({
-    heroHeadline: "Smarter poultry farming,\nevery single day",
+    heroHeadline: "Smart Farming. Healthier Flocks.\nHigher Profits.",
     heroSubtext: "Track batch health with daily smart check-ins, detect diseases from droppings in seconds, consult verified poultry doctors, and trade directly on AgriShop.",
     aboutTitle: "About us",
     aboutText: "Bringing digital tools to poultry farming. We help farmers monitor their flocks, prevent disease, and grow profit with confidence."

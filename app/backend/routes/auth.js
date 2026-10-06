@@ -233,6 +233,81 @@ router.post('/guest', (req, res) => {
   });
 });
 
+// In-memory OTP storage for password recovery
+const otpStore = new Map();
+
+// @route   POST /api/auth/forgot-password
+// @desc    Initiate password reset, generate 6-digit OTP
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { mobile } = req.body;
+    if (!mobile || !/^01\d{9}$/.test(mobile)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 11-digit mobile number.' });
+    }
+
+    // Generate 6-digit verification code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    otpStore.set(mobile, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+    console.log(`\n======================================================`);
+    console.log(`🔑 [AgriMind Auth] Password Reset Code for ${mobile}: ${otp}`);
+    console.log(`======================================================\n`);
+
+    return res.json({
+      success: true,
+      message: '৬-সংখ্যার কোডটি পাঠানো হয়েছে। ব্যাকএন্ড কনসোল চেক করুন।',
+      devCode: otp
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ success: false, message: 'Failed to process request.' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Verify 6-digit OTP and reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { mobile, otp, newPassword } = req.body;
+    if (!mobile || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Please provide mobile, code, and new password.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+    }
+
+    const storedOtp = otpStore.get(mobile);
+    if (!storedOtp || storedOtp.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
+    }
+
+    // Update in MongoDB if available
+    if (isDbConnected()) {
+      try {
+        const user = await User.findOne({ mobile });
+        if (user) {
+          user.password = newPassword;
+          await user.save();
+        }
+      } catch (dbErr) {}
+    }
+
+    // Also update in inMemoryUsers
+    const mockUser = inMemoryUsers.get(mobile);
+    if (mockUser) {
+      const salt = await bcrypt.genSalt(10);
+      mockUser.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    otpStore.delete(mobile);
+    return res.json({ success: true, message: 'Password reset successful!' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ success: false, message: 'Server error during password reset.' });
+  }
+});
+
 router.inMemoryUsers = inMemoryUsers;
 
 module.exports = router;

@@ -1655,7 +1655,7 @@ router.get('/content/homepage', requireAdminOrSupport, (req, res) => {
   res.json({
     success: true,
     content: {
-      heroHeadline: "Smarter poultry farming, every single day",
+      heroHeadline: "Smart Farming. Healthier Flocks. Higher Profits.",
       heroSubtext: "Track batch health with daily smart check-ins, detect diseases from droppings in seconds, consult verified poultry doctors, and trade directly on AgriShop.",
       aboutTitle: "Everything your flock needs, in one unified platform",
       aboutText: "AgriMind bridges the gap between field reality and agricultural intelligence. From automated batch schedules and real-time disease detection to direct veterinary consultations, our tools are built specifically for the needs of Bangladeshi poultry farmers."
@@ -1668,7 +1668,7 @@ router.put('/content/homepage', requireAdmin, async (req, res) => {
     const contentPath = path.join(__dirname, '..', 'config', 'homepageContent.json');
     const before = fs.existsSync(contentPath) ? JSON.parse(fs.readFileSync(contentPath, 'utf8')) : {};
     const updated = {
-      heroHeadline: req.body.heroHeadline || before.heroHeadline || "Smarter poultry farming, every single day",
+      heroHeadline: req.body.heroHeadline || before.heroHeadline || "Smart Farming. Healthier Flocks. Higher Profits.",
       heroSubtext: req.body.heroSubtext || before.heroSubtext || "",
       aboutTitle: req.body.aboutTitle || before.aboutTitle || "Everything your flock needs, in one unified platform",
       aboutText: req.body.aboutText || before.aboutText || ""

@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
-  const [language, setLanguage] = useState(localStorage.getItem('lang') || 'en');
+  const [language, setLanguage] = useState(localStorage.getItem('lang') || 'bn');
 
   // Load user profile on mount
   useEffect(() => {
@@ -142,6 +142,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (mobile) => {
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      return { success: false, message: 'Could not send verification code.' };
+    }
+  };
+
+  const resetPassword = async (mobile, otp, newPassword) => {
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile, otp, newPassword })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      return { success: false, message: 'Could not reset password.' };
+    }
+  };
+
   const loginGuest = async () => {
     try {
       const res = await fetch('/api/auth/guest', {
@@ -180,7 +208,9 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         updateProfile,
-        searchFarmer
+        searchFarmer,
+        forgotPassword,
+        resetPassword
       }}
     >
       {children}

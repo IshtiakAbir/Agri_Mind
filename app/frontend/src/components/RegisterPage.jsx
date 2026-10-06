@@ -34,6 +34,7 @@ const RegisterPage = ({ onNavigateToLogin }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('farmer');
+  const [accessCode, setAccessCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -44,6 +45,8 @@ const RegisterPage = ({ onNavigateToLogin }) => {
     subtitle: language === 'bn'
       ? 'আপনার সুরক্ষিত অ্যাকাউন্ট তৈরি করতে নিচের তথ্য দিন।'
       : 'Fill in the details below to get started.',
+    accessCodeLabel: language === 'bn' ? 'স্টাফ অ্যাক্সেস কোড' : 'Staff Access Code',
+    accessCodePlaceholder: language === 'bn' ? 'কর্মচারী অ্যাক্সেস কোড দিন' : 'Enter staff access code',
     nameLabel: language === 'bn' ? 'পূর্ণ নাম' : 'Full Name',
     namePlaceholder: language === 'bn' ? 'আপনার নাম লিখুন' : 'Enter your full name',
     nameWarning: language === 'bn'
@@ -218,6 +221,24 @@ const RegisterPage = ({ onNavigateToLogin }) => {
                   </button>
                 </div>
               </div>
+
+              {/* Employee Access Code Field (visible when employee role is selected) */}
+              {role === 'employee' && (
+                <div className="space-y-2 animate-fade-in">
+                  <label className="text-xs font-bold text-cyan-300 flex items-center gap-1.5 uppercase tracking-wider">
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                    {t.accessCodeLabel}
+                  </label>
+                  <input
+                    id="register-access-code"
+                    type="password"
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value)}
+                    placeholder={t.accessCodePlaceholder}
+                    className="w-full px-4 py-3.5 rounded-xl bg-slate-800/80 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 outline-none text-slate-100 text-base font-medium placeholder-slate-600 transition-all"
+                  />
+                </div>
+              )}
 
               {/* Full Name */}
               <div className="space-y-2">

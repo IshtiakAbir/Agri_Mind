@@ -30,6 +30,8 @@ import DoctorDirectory from './components/DoctorDirectory';
 import AdminPanel from './components/AdminPanel';
 import FarmAdvantageGate from './components/FarmAdvantageGate';
 import DiseaseAdvantageGate from './components/DiseaseAdvantageGate';
+import ProfileModal from './components/ProfileModal';
+import PoultryBatchDashboard from './components/PoultryBatchDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
   Feather,
@@ -80,6 +82,7 @@ const MainApp = () => {
   const [historyTrigger, setHistoryTrigger] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
 
   // Sync browser back/forward and direct /admin navigation
@@ -96,6 +99,25 @@ const MainApp = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [activeTab]);
+
+  // Sync URL query parameters (?auth=login, ?auth=register, ?tab=employee, ?profile=true)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const auth = params.get('auth');
+      if (auth === 'login' || auth === 'register') {
+        setAuthView(auth);
+        setSkipAuth(false);
+      }
+      const tab = params.get('tab');
+      if (tab) {
+        setActiveTab(tab);
+      }
+      if (params.get('profile') === 'true') {
+        setShowProfileModal(true);
+      }
+    }
+  }, []);
 
   // Close menus on tab change
   useEffect(() => {
@@ -414,6 +436,17 @@ const MainApp = () => {
                       <p className="text-xs font-bold text-slate-100 truncate">{user.name}</p>
                       <p className="text-[10px] text-slate-400 capitalize">{user.role}</p>
                     </div>
+                    <button
+                      id="btn-user-profile"
+                      onClick={() => {
+                        setShowProfileModal(true);
+                        setUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-xs text-slate-200 hover:bg-slate-800 flex items-center gap-2 transition-colors border-b border-slate-800 font-semibold cursor-pointer"
+                    >
+                      <User className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{language === 'bn' ? 'প্রোফাইল পরিচালনা' : 'Profile Management'}</span>
+                    </button>
                     {(user.role === 'admin' || user.role === 'support') && (
                       <button
                         onClick={() => {
@@ -622,6 +655,11 @@ const MainApp = () => {
               farmId={activeFarmId}
             />
           )}
+          {(activeTab === 'batch-calendar' || activeTab === 'calendar') && (
+            <PoultryBatchDashboard
+              onBackToOperations={() => setActiveTab('your-farm')}
+            />
+          )}
           {activeTab === 'employee' && <EmployeeSupport />}
         </ErrorBoundary>
       </main>
@@ -648,6 +686,12 @@ const MainApp = () => {
           </div>
         </footer>
       )}
+
+      {/* Profile Management Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   );
 };

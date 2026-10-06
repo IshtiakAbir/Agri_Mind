@@ -23,6 +23,7 @@ import {
   Sparkles,
   ShieldCheck
 } from 'lucide-react';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 const LoginPage = ({ onNavigateToRegister }) => {
   const { login, language, toggleLanguage } = useContext(AuthContext);
@@ -31,6 +32,7 @@ const LoginPage = ({ onNavigateToRegister }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const t = {
     brandTitle: language === 'bn' ? 'সহজ উপায়ে মুরগি খামার পরিচালনা করুন' : 'Manage your poultry farm the smart way',
@@ -217,6 +219,21 @@ const LoginPage = ({ onNavigateToRegister }) => {
                 </div>
               </div>
 
+              {/* Forgot password trigger */}
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {language === 'bn' ? 'অ্যাকাউন্টে ঢুকতে সমস্যা?' : 'Having trouble?'}
+                </span>
+                <button
+                  id="btn-forgot-password"
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-xs font-bold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors cursor-pointer"
+                >
+                  {language === 'bn' ? 'পাসওয়ার্ড ভুলে গেছেন?' : 'Forgot Password?'}
+                </button>
+              </div>
+
               {/* Submit Button */}
               <button
                 type="submit"
@@ -249,6 +266,13 @@ const LoginPage = ({ onNavigateToRegister }) => {
 
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        initialMobile={mobile}
+      />
     </div>
   );
 };

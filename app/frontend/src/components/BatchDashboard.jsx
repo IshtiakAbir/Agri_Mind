@@ -36,7 +36,9 @@ import MilestoneTimeline from './MilestoneTimeline';
 import DailyCheckInCard from './DailyCheckInCard';
 import BatchWizard from './BatchWizard';
 import BatchCloseModal from './BatchCloseModal';
+import PoultryBatchDashboard from './PoultryBatchDashboard';
 import ErrorBoundary from './ErrorBoundary';
+import { CalendarDays } from 'lucide-react';
 
 export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   const {
@@ -52,6 +54,15 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
   const { language } = useContext(AuthContext);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [showCalendarView, setShowCalendarView] = useState(false);
+
+  if (showCalendarView) {
+    return (
+      <PoultryBatchDashboard
+        onBackToOperations={() => setShowCalendarView(false)}
+      />
+    );
+  }
 
   // If no batches exist for farmer
   if (!loading && batches.length === 0) {
@@ -131,11 +142,19 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setShowCalendarView(true)}
+            className="px-3.5 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
+            Calendar & Check-in View
+          </button>
+
           <button
             onClick={() => refreshActiveBatch()}
             title="Refresh flock telemetry"
-            className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs transition-colors"
+            className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs transition-colors cursor-pointer"
           >
             <RefreshCw className="w-4 h-4 text-emerald-400" />
           </button>
@@ -143,7 +162,7 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
           {currentBatch?.status === 'Active' && (
             <button
               onClick={() => setIsCloseModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Archive className="w-3.5 h-3.5" />
               Close Batch
@@ -152,7 +171,7 @@ export default function BatchDashboard({ activeFarmId, setActiveFarmId }) {
 
           <button
             onClick={() => setIsWizardOpen(true)}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             New Flock

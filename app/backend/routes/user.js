@@ -91,6 +91,24 @@ router.get('/farmer/:mobile', auth, async (req, res) => {
       } catch (e) {}
     }
 
+    // Check in-memory users for fallback / demo evaluation
+    const authRouter = require('./auth');
+    if (authRouter.inMemoryUsers) {
+      const mockUser = authRouter.inMemoryUsers.get(mobile);
+      if (mockUser && mockUser.role === 'farmer') {
+        return res.json({
+          success: true,
+          farmer: {
+            id: mockUser._id || mockUser.id,
+            name: mockUser.name,
+            mobile: mockUser.mobile,
+            role: mockUser.role,
+            createdAt: mockUser.createdAt || new Date().toISOString()
+          }
+        });
+      }
+    }
+
     return res.status(404).json({ success: false, message: 'No farmer found with this mobile number.' });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error searching farmer.' });

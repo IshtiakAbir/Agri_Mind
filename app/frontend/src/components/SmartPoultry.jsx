@@ -12,11 +12,12 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   Bird, Warehouse, MapPin, ChevronRight, Plus, Check,
-  ArrowLeft, LayoutDashboard, RefreshCw
+  ArrowLeft, LayoutDashboard, RefreshCw, CalendarDays
 } from 'lucide-react';
 import { BatchContext } from '../context/BatchContext';
 import BatchDashboard from './BatchDashboard';
 import FarmSummary from './FarmSummary';
+import PoultryBatchDashboard from './PoultryBatchDashboard';
 import ErrorBoundary from './ErrorBoundary';
 
 export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveTab }) {
@@ -24,7 +25,15 @@ export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveT
   const [farms, setFarms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeFarm, setActiveFarm] = useState(null);
-  const [view, setView] = useState('summary'); // 'summary' | 'batches'
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'calendar' || params.get('tab') === 'calendar') {
+        return 'calendar';
+      }
+    }
+    return 'calendar'; // Default to calendar-driven dashboard
+  });
 
   useEffect(() => {
     fetchFarms();
@@ -133,12 +142,22 @@ export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveT
       </div>
 
       {/* View Switcher */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setView('calendar')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            view === 'calendar'
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950/40'
+              : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <CalendarDays className="w-3.5 h-3.5" /> Batch Calendar & Check-in
+        </button>
         <button
           onClick={() => setView('summary')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
             view === 'summary'
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-950/40 font-extrabold'
               : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -146,26 +165,32 @@ export default function SmartPoultry({ activeFarmId, setActiveFarmId, setActiveT
         </button>
         <button
           onClick={() => setView('batches')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
             view === 'batches'
-              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md'
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md shadow-emerald-950/40 font-extrabold'
               : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Bird className="w-3.5 h-3.5" /> Batch Dashboard
+          <Bird className="w-3.5 h-3.5" /> Batch Operations
         </button>
       </div>
 
       {/* Content */}
       <ErrorBoundary fallbackTitle="Flock View Temporarily Unavailable">
-        {view === 'summary' ? (
+        {view === 'calendar' && (
+          <PoultryBatchDashboard
+            onBackToOperations={() => setView('batches')}
+          />
+        )}
+        {view === 'summary' && (
           <FarmSummary
             farm={activeFarm}
             batches={batches.filter(b => String(b.farmId) === String(activeFarm?._id))}
             onNavigateToBatch={(batchId) => setView('batches')}
             onNavigateToDiagnosis={() => setActiveTab && setActiveTab('disease')}
           />
-        ) : (
+        )}
+        {view === 'batches' && (
           <BatchDashboard
             activeFarmId={activeFarmId}
             setActiveFarmId={setActiveFarmId}

@@ -85,7 +85,7 @@ app.get('/api/content/homepage', (req, res) => {
   res.json({
     success: true,
     content: {
-      heroHeadline: "Smarter poultry farming, every single day",
+      heroHeadline: "Smart Farming. Healthier Flocks. Higher Profits.",
       heroSubtext: "Track batch health with daily smart check-ins, detect diseases from droppings in seconds, consult verified poultry doctors, and trade directly on AgriShop.",
       aboutTitle: "Everything your flock needs, in one unified platform",
       aboutText: "AgriMind bridges the gap between field reality and agricultural intelligence. From automated batch schedules and real-time disease detection to direct veterinary consultations, our tools are built specifically for the needs of Bangladeshi poultry farmers."
