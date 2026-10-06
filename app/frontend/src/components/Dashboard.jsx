@@ -25,7 +25,7 @@ import {
   CheckCircle2, ChevronRight,
   BarChart3, Stethoscope, ClipboardCheck, TrendingUp,
   Star, Tag, Phone, RefreshCw, Sparkles, Bird,
-  MapPin, Video, Truck
+  MapPin, Video, Truck, CalendarDays
 } from 'lucide-react';
 
 // ─── Hero image source ────────────────────────────────────────────────────────
@@ -187,20 +187,27 @@ export default function Dashboard({ setActiveTab, setActiveFarmId, onFarmRegiste
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+            <button
+              onClick={() => setActiveTab('calendar')}
+              className="px-7 py-3.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-teal-500 hover:from-indigo-500 hover:to-teal-400 text-white text-sm font-extrabold flex items-center gap-2.5 transition-all shadow-xl shadow-indigo-950/60 hover:scale-105 active:scale-100 cursor-pointer"
+            >
+              <CalendarDays className="w-4 h-4 text-emerald-300" />
+              Batch Calendar Dashboard
+            </button>
             <button
               onClick={scrollToMarketplace}
-              className="px-7 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold flex items-center gap-2.5 transition-all shadow-xl shadow-emerald-900/50 hover:scale-105 active:scale-100"
+              className="px-6 py-3.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-extrabold flex items-center gap-2.5 transition-all shadow-xl shadow-emerald-900/50 hover:scale-105 active:scale-100 cursor-pointer"
             >
               <ShoppingBag className="w-4 h-4" />
-              Explore marketplace
+              Explore Marketplace
             </button>
             <button
               onClick={() => setActiveTab('doctors')}
-              className="px-7 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/30 flex items-center gap-2.5 backdrop-blur-sm transition-all hover:scale-105 active:scale-100"
+              className="px-6 py-3.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-bold border border-white/30 flex items-center gap-2.5 backdrop-blur-sm transition-all hover:scale-105 active:scale-100 cursor-pointer"
             >
               <Stethoscope className="w-4 h-4" />
-              Find a doctor
+              Find a Doctor
             </button>
           </div>
 

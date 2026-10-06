@@ -49,7 +49,8 @@ import {
   BarChart3,
   User,
   ChevronDown,
-  Shield
+  Shield,
+  CalendarDays
 } from 'lucide-react';
 
 const queryClient = new QueryClient({
@@ -325,6 +326,7 @@ const MainApp = () => {
   // Core public nav items — always visible
   const publicNavItems = [
     { id: 'home', label: t.home, icon: Home },
+    { id: 'calendar', label: 'Batch Calendar', icon: CalendarDays },
     { id: 'market', label: t.marketplace, icon: ShoppingBag },
     { id: 'disease', label: t.disease, icon: Activity },
     { id: 'doctors', label: t.doctors, icon: Stethoscope },
@@ -334,9 +336,10 @@ const MainApp = () => {
   // "Your Farm" is special — requires auth
   const yourFarmItem = { id: 'your-farm', label: t.yourFarm, icon: Bird };
 
-  // Full ordered nav: Home | Your Farm | Marketplace | Diagnostics | Doctors | Reports
+  // Full ordered nav: Home | Batch Calendar | Your Farm | Marketplace | Diagnostics | Doctors | Reports
   const allNavItems = [
     { id: 'home', label: t.home, icon: Home },
+    { id: 'calendar', label: 'Batch Calendar', icon: CalendarDays },
     yourFarmItem,
     { id: 'market', label: t.marketplace, icon: ShoppingBag },
     { id: 'disease', label: t.disease, icon: Activity },
