@@ -21,7 +21,8 @@ import {
   Package,
   RotateCcw,
   ArrowRight,
-  CalendarCheck2
+  SlidersHorizontal,
+  Info
 } from 'lucide-react';
 
 /**
@@ -33,30 +34,101 @@ import {
  *              task reminders embedded directly in Batch Operations.
  * =============================================================================
  */
+
+/**
+ * Calculates flock age and status for any target calendar date.
+ * @param {string} targetDateStr - Target date in YYYY-MM-DD
+ * @param {string} placementDateStr - Batch start date in YYYY-MM-DD
+ * @param {number} initialAgeDays - Age of chicks on arrival day (default 1)
+ */
+function getFlockAgeForDate(targetDateStr, placementDateStr, initialAgeDays = 1) {
+  if (!targetDateStr || !placementDateStr) {
+    return { status: 'unknown', age: null, label: '--', shortLabel: '--' };
+  }
+  try {
+    const [ty, tm, td] = targetDateStr.split('-').map(Number);
+    const [py, pm, pd] = placementDateStr.split('-').map(Number);
+    
+    // Normalize to UTC midnight to avoid time-zone off-by-one errors
+    const targetUtc = Date.UTC(ty, tm - 1, td);
+    const placementUtc = Date.UTC(py, pm - 1, pd);
+    const diffDays = Math.round((targetUtc - placementUtc) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return {
+        status: 'pre_placement',
+        diffDays,
+        age: null,
+        label: 'Pre-Placement',
+        shortLabel: 'Pre-Flock'
+      };
+    }
+
+    const age = Number(initialAgeDays || 1) + diffDays;
+    return {
+      status: 'active',
+      diffDays,
+      age,
+      label: `Flock Age: Day ${age}`,
+      shortLabel: `Day ${age}`
+    };
+  } catch {
+    return { status: 'unknown', age: null, label: '--', shortLabel: '--' };
+  }
+}
+
+function addDaysToDateStr(baseDateStr, days) {
+  try {
+    const [y, m, d] = baseDateStr.split('-').map(Number);
+    const dateObj = new Date(Date.UTC(y, m - 1, d));
+    dateObj.setUTCDate(dateObj.getUTCDate() + days);
+    return dateObj.toISOString().split('T')[0];
+  } catch {
+    return baseDateStr;
+  }
+}
+
+function normalizeDateToYMD(d, fallback = '2026-10-07') {
+  if (!d) return fallback;
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return fallback;
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function PoultryBatchDashboard({
   batch = null,
   dashboardData = null,
   onRefresh = null
 }) {
-  // ─── 1. Batch Identity & Dynamic Placement Date ─────────────────────────────
-  // Defaults to Batch #A-104 placed on 2026-10-06 unless passed from BatchContext
-  const initialStartDate = useMemo(() => {
+  // ─── 1. Batch Identity & Date Configuration ──────────────────────────────────
+  // User example: placement on Oct 7, 2026 -> on Oct 9, 2026 it turns Day 3!
+  const initialPlacementDate = useMemo(() => {
     if (batch?.batchStartDate) {
-      try {
-        return new Date(batch.batchStartDate).toISOString().split('T')[0];
-      } catch (_) {}
+      return normalizeDateToYMD(batch.batchStartDate, '2026-10-07');
     }
-    return batch?.startDate || '2026-10-06';
+    return batch?.startDate ? normalizeDateToYMD(batch.startDate, '2026-10-07') : '2026-10-07';
   }, [batch]);
 
-  const [startDate, setStartDate] = useState(initialStartDate);
-  const [referenceDate, setReferenceDate] = useState('2026-10-07'); // Default simulated "Today" anchor
+  const [startDate, setStartDate] = useState(initialPlacementDate);
+  const [initialAge, setInitialAge] = useState(1); // Placement day = Day 1
+  const [referenceDate, setReferenceDate] = useState('2026-10-09'); // Default viewing date: Oct 9, 2026 (Day 3)
+  const [selectedDateStr, setSelectedDateStr] = useState('2026-10-09'); // Selected on calendar
+  
+  // Keep calendar month aligned with selected date (October 2026 = month 9)
+  const [currentMonth, setCurrentMonth] = useState({ year: 2026, month: 9 });
 
   useEffect(() => {
-    if (initialStartDate) {
-      setStartDate(initialStartDate);
+    if (initialPlacementDate) {
+      setStartDate(initialPlacementDate);
     }
-  }, [initialStartDate]);
+  }, [initialPlacementDate]);
 
   const batchInfo = useMemo(() => {
     return {
@@ -70,61 +142,47 @@ export default function PoultryBatchDashboard({
     };
   }, [batch, dashboardData]);
 
-  // Selected date on the interactive calendar
-  const [selectedDateStr, setSelectedDateStr] = useState('2026-10-07');
-  
-  // Calendar month state: initialized to the month of the selected date (October 2026 = month 9)
-  const [currentMonth, setCurrentMonth] = useState({ year: 2026, month: 9 });
+  // ─── 2. Real-Time Dynamic Flock Age Calculation ─────────────────────────────
+  // Current flock age on Reference Date ("Today")
+  const currentFlockAgeInfo = useMemo(() => {
+    return getFlockAgeForDate(referenceDate, startDate, initialAge);
+  }, [referenceDate, startDate, initialAge]);
 
-  // ─── 2. Flock Age Calculation Engine (Date Driven) ─────────────────────────
-  /**
-   * Calculates flock age in calendar days based on target date and start date.
-   * Arrival / Placement day is considered Day 1.
-   */
-  const calculateFlockAgeDays = (targetDateStr, baseStartDate = startDate) => {
-    if (!targetDateStr || !baseStartDate) return 1;
-    try {
-      const [ty, tm, td] = targetDateStr.split('-').map(Number);
-      const [sy, sm, sd] = baseStartDate.split('-').map(Number);
-      const targetUtc = Date.UTC(ty, tm - 1, td);
-      const startUtc = Date.UTC(sy, sm - 1, sd);
-      const diffMs = targetUtc - startUtc;
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      return Math.max(1, diffDays + 1);
-    } catch {
-      return 1;
-    }
-  };
+  // Flock age on whichever date is clicked on the calendar
+  const selectedFlockAgeInfo = useMemo(() => {
+    return getFlockAgeForDate(selectedDateStr, startDate, initialAge);
+  }, [selectedDateStr, startDate, initialAge]);
 
-  // Flock Age for Reference Date ("Today")
-  const currentFlockAgeDays = useMemo(() => {
-    return calculateFlockAgeDays(referenceDate, startDate);
-  }, [referenceDate, startDate]);
-
-  // Flock Age for the currently clicked date on the calendar
-  const selectedFlockAgeDays = useMemo(() => {
-    return calculateFlockAgeDays(selectedDateStr, startDate);
-  }, [selectedDateStr, startDate]);
-
-  // ─── 3. Daily Check-in Database State ──────────────────────────────────────
+  // ─── 3. Daily Check-in Database State ───────────────────────────────────────
   const [logs, setLogs] = useState({
-    '2026-10-06': {
+    '2026-10-07': {
       completed: true,
-      mortality: 7,
+      mortality: 4,
       feedConsumed: 95,
       waterIntake: 230,
       avgWeight: 44,
       waterFlushed: true,
       ventilationChecked: true,
       litterChecked: true,
-      notes: 'Day-old chicks arrived at 08:30 AM. Brooder pre-heated to 33°C. High initial vitality.'
+      notes: 'Arrival placement. Brooder set to 33°C. Chicks received with high uniformity.'
     },
-    '2026-10-07': {
-      completed: false, // Pending for today
-      mortality: 5,
-      feedConsumed: 110,
+    '2026-10-08': {
+      completed: true,
+      mortality: 2,
+      feedConsumed: 105,
+      waterIntake: 245,
+      avgWeight: 52,
+      waterFlushed: true,
+      ventilationChecked: true,
+      litterChecked: true,
+      notes: 'Day 2 routine completed. Activity and water intake normal.'
+    },
+    '2026-10-09': {
+      completed: false, // Pending for today (Day 3)
+      mortality: 1,
+      feedConsumed: 115,
       waterIntake: 260,
-      avgWeight: 58,
+      avgWeight: 60,
       waterFlushed: true,
       ventilationChecked: false,
       litterChecked: false,
@@ -132,77 +190,7 @@ export default function PoultryBatchDashboard({
     }
   });
 
-  // ─── 4. Predictive Task Reminders Pipeline ──────────────────────────────────
-  const [tasks, setTasks] = useState([
-    {
-      id: 'task-1',
-      date: '2026-10-08',
-      flockAge: 3,
-      title: 'B1 Newcastle & Bronchitis Booster',
-      category: 'Vaccination',
-      icon: Syringe,
-      badge: 'Due Tomorrow',
-      badgeColor: 'amber',
-      notes: 'Eye-drop or coarse spray route. Prepare skim milk stabiliser in clean non-chlorinated water.'
-    },
-    {
-      id: 'task-2',
-      date: '2026-10-10',
-      flockAge: 5,
-      title: 'Flock Uniformity & Weight Sampling',
-      category: 'Weighing',
-      icon: Scale,
-      badge: 'Upcoming',
-      badgeColor: 'blue',
-      notes: 'Sample 50 birds across 4 pen quadrants to evaluate initial growth rate against Cobb 500 curve.'
-    },
-    {
-      id: 'task-3',
-      date: '2026-10-12',
-      flockAge: 7,
-      title: 'Gumboro (IBD Intermediate) Vaccine',
-      category: 'Vaccination',
-      icon: Syringe,
-      badge: 'Critical Vaccine',
-      badgeColor: 'rose',
-      notes: 'Drinking water route with 2 hours water withholding before administration.'
-    },
-    {
-      id: 'task-4',
-      date: '2026-10-14',
-      flockAge: 9,
-      title: 'Transition to Grower Pellet Feed',
-      category: 'Nutrition',
-      icon: Wheat,
-      badge: 'Upcoming',
-      badgeColor: 'indigo',
-      notes: '50/50 blend of Crumble Starter and Grower Pellets for 48 hours before full switch.'
-    },
-    {
-      id: 'task-5',
-      date: '2026-10-18',
-      flockAge: 13,
-      title: 'Ventilation Fan Step-Up Calibration',
-      category: 'Environment',
-      icon: Wind,
-      badge: 'Upcoming',
-      badgeColor: 'emerald',
-      notes: 'Increase minimum ventilation CFM per bird to manage respiratory moisture and ammonia.'
-    },
-    {
-      id: 'task-6',
-      date: '2026-10-22',
-      flockAge: 17,
-      title: 'Switch to Finisher Feed Formula',
-      category: 'Nutrition',
-      icon: Package,
-      badge: 'Upcoming',
-      badgeColor: 'indigo',
-      notes: 'High-energy finisher formulation for optimal feed conversion ratio (FCR).'
-    }
-  ]);
-
-  // Active form values for the selected date
+  // Active form values for the selected calendar date
   const activeLog = logs[selectedDateStr] || {
     completed: false,
     mortality: '',
@@ -218,7 +206,6 @@ export default function PoultryBatchDashboard({
   const [formValues, setFormValues] = useState(activeLog);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
-  // Sync form values whenever selected date changes
   useEffect(() => {
     const existing = logs[selectedDateStr] || {
       completed: false,
@@ -255,6 +242,93 @@ export default function PoultryBatchDashboard({
     setSaveSuccessNotice(true);
     setTimeout(() => setSaveSuccessNotice(false), 3000);
   };
+
+  // ─── 4. Dynamic Predictive Task Schedule (Tied to Flock Age) ────────────────
+  const taskTemplates = useMemo(() => [
+    {
+      id: 'task-1',
+      targetFlockAge: 3,
+      title: 'B1 Newcastle & Bronchitis Booster',
+      category: 'Vaccination',
+      icon: Syringe,
+      badge: 'Critical Vaccine',
+      badgeColor: 'rose',
+      notes: 'Eye-drop or coarse spray route. Prepare skim milk stabiliser in clean non-chlorinated water.'
+    },
+    {
+      id: 'task-2',
+      targetFlockAge: 5,
+      title: 'Flock Uniformity & Weight Sampling',
+      category: 'Weighing',
+      icon: Scale,
+      badge: 'Upcoming',
+      badgeColor: 'blue',
+      notes: 'Sample 50 birds across 4 pen quadrants to evaluate initial growth rate against Cobb 500 curve.'
+    },
+    {
+      id: 'task-3',
+      targetFlockAge: 7,
+      title: 'Gumboro (IBD Intermediate) Vaccine',
+      category: 'Vaccination',
+      icon: Syringe,
+      badge: 'Critical Vaccine',
+      badgeColor: 'rose',
+      notes: 'Drinking water route with 2 hours water withholding before administration.'
+    },
+    {
+      id: 'task-4',
+      targetFlockAge: 9,
+      title: 'Transition to Grower Pellet Feed',
+      category: 'Nutrition',
+      icon: Wheat,
+      badge: 'Upcoming',
+      badgeColor: 'indigo',
+      notes: '50/50 blend of Crumble Starter and Grower Pellets for 48 hours before full switch.'
+    },
+    {
+      id: 'task-5',
+      targetFlockAge: 13,
+      title: 'Ventilation Fan Step-Up Calibration',
+      category: 'Environment',
+      icon: Wind,
+      badge: 'Upcoming',
+      badgeColor: 'emerald',
+      notes: 'Increase minimum ventilation CFM per bird to manage respiratory moisture and ammonia.'
+    },
+    {
+      id: 'task-6',
+      targetFlockAge: 17,
+      title: 'Switch to Finisher Feed Formula',
+      category: 'Nutrition',
+      icon: Package,
+      badge: 'Upcoming',
+      badgeColor: 'indigo',
+      notes: 'High-energy finisher formulation for optimal feed conversion ratio (FCR).'
+    }
+  ], []);
+
+  // Compute exact task calendar date based on placement date and target flock age
+  const scheduledTasks = useMemo(() => {
+    return taskTemplates.map(tmpl => {
+      // If arrival is Day 1, target age 3 happens on placementDate + 2 days
+      const daysAfterPlacement = Math.max(0, (tmpl.targetFlockAge - Number(initialAge || 1)));
+      const taskDate = addDaysToDateStr(startDate, daysAfterPlacement);
+      return {
+        ...tmpl,
+        date: taskDate,
+        flockAge: tmpl.targetFlockAge
+      };
+    });
+  }, [taskTemplates, startDate, initialAge]);
+
+  const tasksByDate = useMemo(() => {
+    const map = {};
+    scheduledTasks.forEach(t => {
+      if (!map[t.date]) map[t.date] = [];
+      map[t.date].push(t);
+    });
+    return map;
+  }, [scheduledTasks]);
 
   // ─── 5. Calendar Generation (Month Matrix) ──────────────────────────────────
   const monthNames = [
@@ -337,15 +411,14 @@ export default function PoultryBatchDashboard({
     setSelectedDateStr(referenceDate);
   };
 
-  // Map tasks by date for fast indicator dot rendering
-  const tasksByDate = useMemo(() => {
-    const map = {};
-    tasks.forEach(t => {
-      if (!map[t.date]) map[t.date] = [];
-      map[t.date].push(t);
-    });
-    return map;
-  }, [tasks]);
+  // Quick Preset Handlers
+  const handleApplyPreset = (presetStart, presetRef) => {
+    setStartDate(presetStart);
+    setReferenceDate(presetRef);
+    setSelectedDateStr(presetRef);
+    const [ry, rm] = presetRef.split('-').map(Number);
+    setCurrentMonth({ year: ry, month: rm - 1 });
+  };
 
   const formattedSelectedDate = useMemo(() => {
     try {
@@ -359,13 +432,13 @@ export default function PoultryBatchDashboard({
 
   return (
     <div className="space-y-6 text-slate-100 font-sans animate-fade-in">
-      {/* ─── 1. Top Batch Header & Dynamic Flock Age Widget ─── */}
+      {/* ─── 1. Top Dashboard Header & Dynamic Flock Age Widget ─── */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
         {/* Ambient glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-indigo-500/10 via-emerald-500/5 to-transparent pointer-events-none rounded-full blur-3xl -mr-20 -mt-20" />
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10">
-          {/* Left Column: Batch Identity & Placement Date Config */}
+          {/* Left Column: Batch Identity & Placement Date Configuration */}
           <div className="md:col-span-7 space-y-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <span className="px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-mono font-extrabold text-xs shadow-md tracking-wider">
@@ -379,107 +452,154 @@ export default function PoultryBatchDashboard({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-1">
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+            {/* Date Configuration Inputs Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              {/* 1. Placement Date Input */}
+              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                  <CalendarDays className="w-3.5 h-3.5 text-emerald-400" />
                   Placement Date
                 </span>
-                <div className="flex items-center gap-2 mt-1">
-                  <CalendarDays className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    title="Change placement start date to test dynamic flock age calculation"
-                    className="bg-slate-950 border border-slate-800 text-slate-100 text-xs font-bold rounded-lg px-2 py-1 focus:border-emerald-500 focus:outline-none transition-colors cursor-pointer"
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 hover:border-emerald-500 text-slate-100 text-xs font-extrabold rounded-lg px-2.5 py-1.5 focus:border-emerald-500 focus:outline-none transition-colors cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Arrival day (Day {initialAge})</span>
               </div>
 
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Flock Population
+              {/* 2. Reference / Today Date Input */}
+              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                  Current Date
                 </span>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <Bird className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-bold text-slate-200">
-                    {batchInfo.currentLiveBirds.toLocaleString()} Birds
-                  </span>
-                </div>
+                <input
+                  type="date"
+                  value={referenceDate}
+                  onChange={(e) => {
+                    setReferenceDate(e.target.value);
+                    setSelectedDateStr(e.target.value);
+                  }}
+                  className="w-full bg-slate-900 border border-slate-700 hover:border-indigo-500 text-slate-100 text-xs font-extrabold rounded-lg px-2.5 py-1.5 focus:border-indigo-500 focus:outline-none transition-colors cursor-pointer"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Simulated current date</span>
               </div>
 
-              <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                  Target Harvest
+              {/* 3. Initial Flock Age at Placement */}
+              <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1.5">
+                  <Bird className="w-3.5 h-3.5 text-amber-400" />
+                  Initial Age (Days)
                 </span>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <Clock className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-bold text-slate-200">
-                    Day {batchInfo.targetHarvestDays} ({batchInfo.targetHarvestWeight})
-                  </span>
-                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={initialAge}
+                  onChange={(e) => setInitialAge(Number(e.target.value) || 0)}
+                  className="w-full bg-slate-900 border border-slate-700 hover:border-amber-500 text-slate-100 text-xs font-extrabold rounded-lg px-2.5 py-1.5 focus:border-amber-500 focus:outline-none transition-colors"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Default: 1 (Day-Old-Chick)</span>
               </div>
             </div>
 
-            {/* Dynamic Date Calculation Breakdown Note */}
-            <div className="pt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-              <span className="text-slate-500">Date Calculation:</span>
-              <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-emerald-400">
-                Start: {startDate}
+            {/* Quick Test Presets Bar */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                <SlidersHorizontal className="w-3 h-3 text-slate-400" />
+                Quick Presets:
               </span>
-              <span>➔</span>
-              <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 font-mono text-indigo-300">
-                Today: {referenceDate}
-              </span>
-              <span>=</span>
-              <span className="font-bold text-slate-200">
-                Day {currentFlockAgeDays} of {batchInfo.targetHarvestDays}
-              </span>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('2026-10-07', '2026-10-09')}
+                className="px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-[11px] font-bold transition-all cursor-pointer"
+              >
+                Oct 7 Start ➔ Oct 9 (Day 3)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('2026-10-07', '2026-10-07')}
+                className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-[11px] font-medium transition-all cursor-pointer"
+              >
+                Oct 7 Start ➔ Oct 7 (Day 1)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset('2026-10-01', '2026-10-09')}
+                className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-[11px] font-medium transition-all cursor-pointer"
+              >
+                Oct 1 Start ➔ Oct 9 (Day 9)
+              </button>
             </div>
           </div>
 
           {/* Right Column: Prominent Dynamic Flock Age Widget */}
           <div className="md:col-span-5 flex justify-start md:justify-end">
-            <div className="w-full sm:w-auto min-w-[280px] bg-gradient-to-br from-indigo-950/50 via-slate-900 to-emerald-950/30 border-2 border-indigo-500/40 rounded-2xl p-4 sm:p-5 shadow-2xl relative">
+            <div className="w-full sm:w-auto min-w-[280px] bg-gradient-to-br from-indigo-950/60 via-slate-900 to-emerald-950/40 border-2 border-indigo-500/50 rounded-2xl p-5 shadow-2xl relative">
               <div className="flex items-center justify-between gap-4 mb-2">
                 <span className="text-[11px] uppercase tracking-wider font-extrabold text-indigo-400 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Dynamic Flock Age
+                  Live Flock Age
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Auto-Updates
+                  Auto-Calculated
                 </span>
               </div>
 
+              {/* Big Prominent Flock Age Display */}
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">
-                  Flock Age: {currentFlockAgeDays}
+                  {currentFlockAgeInfo.status === 'active'
+                    ? `Flock Age: ${currentFlockAgeInfo.age}`
+                    : 'Pre-Placement'}
                 </span>
-                <span className="text-sm sm:text-base font-bold text-indigo-400">
-                  Days
-                </span>
+                {currentFlockAgeInfo.status === 'active' && (
+                  <span className="text-base font-bold text-indigo-400">
+                    Days
+                  </span>
+                )}
               </div>
 
-              <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between gap-4">
-                <span>Cycle Progress:</span>
-                <span className="font-bold text-emerald-400">
-                  {Math.min(100, Math.round((currentFlockAgeDays / batchInfo.targetHarvestDays) * 100))}%
-                </span>
+              {/* Exact Formula Breakdown */}
+              <div className="mt-2.5 p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] space-y-1">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Placement Date:</span>
+                  <span className="font-mono text-emerald-400 font-bold">{startDate}</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Current / Target Date:</span>
+                  <span className="font-mono text-indigo-300 font-bold">{referenceDate}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-slate-300 font-semibold">
+                  <span>Computed Age:</span>
+                  <span className="text-emerald-400 font-bold">
+                    {currentFlockAgeInfo.status === 'active'
+                      ? `Day ${currentFlockAgeInfo.age} (elapsed + initial)`
+                      : 'Not yet placed'}
+                  </span>
+                </div>
               </div>
 
-              {/* Progress bar towards harvest */}
-              <div className="w-full bg-slate-950 rounded-full h-2 mt-2 overflow-hidden border border-slate-800">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-400 h-2 rounded-full transition-all duration-500 shadow-sm shadow-emerald-500/50"
-                  style={{ width: `${Math.min(100, Math.round((currentFlockAgeDays / batchInfo.targetHarvestDays) * 100))}%` }}
-                />
-              </div>
-
-              <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-500">
-                <span>Calculated from Start Date</span>
-                <span className="text-indigo-300 font-mono">Day {currentFlockAgeDays}</span>
-              </div>
+              {/* Harvest progress bar */}
+              {currentFlockAgeInfo.status === 'active' && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                    <span>Target: Day {batchInfo.targetHarvestDays}</span>
+                    <span className="font-bold text-emerald-400">
+                      {Math.min(100, Math.round((currentFlockAgeInfo.age / batchInfo.targetHarvestDays) * 100))}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div
+                      className="bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-400 h-2 rounded-full transition-all duration-500 shadow-sm shadow-emerald-500/50"
+                      style={{ width: `${Math.min(100, Math.round((currentFlockAgeInfo.age / batchInfo.targetHarvestDays) * 100))}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -497,7 +617,7 @@ export default function PoultryBatchDashboard({
                 {monthNames[currentMonth.month]} {currentMonth.year}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Click any date to inspect routine records, view day age, or submit daily check-in.
+                Each calendar date clearly displays its dynamic <strong className="text-slate-200">Flock Age</strong> calculated from the placement date.
               </p>
             </div>
 
@@ -506,7 +626,7 @@ export default function PoultryBatchDashboard({
                 onClick={handleResetToToday}
                 className="px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-800 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
               >
-                Today
+                Reset to Current
               </button>
               <div className="flex items-center rounded-xl border border-slate-800 bg-slate-950 p-0.5">
                 <button
@@ -533,19 +653,19 @@ export default function PoultryBatchDashboard({
               <span className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-[9px]">
                 ✓
               </span>
-              Completed Day
+              Completed Routine
             </span>
             <span className="flex items-center gap-1.5 font-medium text-slate-300">
               <span className="w-3.5 h-3.5 rounded-md border-2 border-indigo-500 bg-indigo-500/20" />
-              Pending / Today
+              Active / Selected Date
             </span>
             <span className="flex items-center gap-1.5 font-medium text-slate-300">
               <span className="w-2 h-2 rounded-full bg-rose-400" />
-              Vaccine
+              Vaccination Scheduled
             </span>
             <span className="flex items-center gap-1.5 font-medium text-slate-300">
               <span className="w-2 h-2 rounded-full bg-blue-400" />
-              Weighing / Task
+              Weight Sampling
             </span>
           </div>
 
@@ -558,77 +678,96 @@ export default function PoultryBatchDashboard({
             ))}
           </div>
 
-          {/* Interactive Calendar Days Grid */}
+          {/* ─── Interactive Calendar Days Grid (Date-wise Flock Age Clearly Written) ─── */}
           <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {calendarDays.map((cell, idx) => {
               const isSelected = cell.dateStr === selectedDateStr;
-              const isToday = cell.dateStr === referenceDate;
+              const isRefToday = cell.dateStr === referenceDate;
+              const isPlacementDay = cell.dateStr === startDate;
               const logData = logs[cell.dateStr];
               const isCompleted = Boolean(logData?.completed);
               const cellTasks = tasksByDate[cell.dateStr] || [];
-              const cellFlockAge = calculateFlockAgeDays(cell.dateStr, startDate);
+              const ageInfo = getFlockAgeForDate(cell.dateStr, startDate, initialAge);
 
               return (
                 <button
                   key={`${cell.dateStr}-${idx}`}
                   onClick={() => setSelectedDateStr(cell.dateStr)}
                   disabled={cell.isPadding}
-                  className={`min-h-[76px] sm:min-h-[88px] p-1.5 sm:p-2 rounded-xl text-left flex flex-col justify-between transition-all relative cursor-pointer ${
+                  className={`min-h-[82px] sm:min-h-[96px] p-2 rounded-xl text-left flex flex-col justify-between transition-all relative cursor-pointer ${
                     cell.isPadding
                       ? 'opacity-20 bg-transparent border border-transparent cursor-not-allowed'
                       : isSelected
-                      ? 'bg-slate-950 border-2 border-indigo-500 shadow-lg shadow-indigo-950/80 ring-2 ring-indigo-500/30'
+                      ? 'bg-slate-950 border-2 border-indigo-400 shadow-xl shadow-indigo-950/80 ring-2 ring-indigo-500/30'
                       : isCompleted
-                      ? 'bg-slate-950/80 border border-emerald-500/40 hover:border-emerald-500'
-                      : isToday
-                      ? 'bg-slate-950 border-2 border-indigo-400/80 hover:border-indigo-400'
-                      : 'bg-slate-950/40 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/50'
+                      ? 'bg-slate-950/90 border border-emerald-500/40 hover:border-emerald-500'
+                      : isRefToday
+                      ? 'bg-slate-950 border-2 border-indigo-500/80 hover:border-indigo-400'
+                      : 'bg-slate-950/50 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/40'
                   }`}
                 >
-                  {/* Top Row: Date Number + Completed Checkmark / Status Icon */}
+                  {/* Top Row: Calendar Date Number + Status Icon */}
                   <div className="flex items-center justify-between w-full">
-                    <span className={`text-xs sm:text-sm font-bold ${
+                    <span className={`text-xs sm:text-sm font-extrabold ${
                       isSelected
-                        ? 'text-indigo-400 font-extrabold'
-                        : isToday
-                        ? 'text-indigo-300 font-extrabold'
-                        : 'text-slate-300'
+                        ? 'text-indigo-300'
+                        : isRefToday
+                        ? 'text-indigo-400'
+                        : isPlacementDay
+                        ? 'text-emerald-400'
+                        : 'text-slate-200'
                     }`}>
                       {cell.dayNumber}
                     </span>
 
-                    {/* Completion status indicator */}
+                    {/* Completion or Placement Badge */}
                     {isCompleted ? (
                       <span
-                        title="Completed Daily Routine"
-                        className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-bold text-[9px] shadow-xs"
+                        title="Daily Routine Completed"
+                        className="w-4 h-4 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 flex items-center justify-center font-bold text-[9px] shadow-xs"
                       >
                         ✓
                       </span>
-                    ) : isToday ? (
+                    ) : isPlacementDay ? (
                       <span
-                        title="Pending Routine for Today"
-                        className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"
+                        title="Flock Arrival / Placement Day"
+                        className="px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-bold uppercase"
+                      >
+                        Start
+                      </span>
+                    ) : isRefToday ? (
+                      <span
+                        title="Simulated Today"
+                        className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"
                       />
                     ) : null}
                   </div>
 
-                  {/* Middle Row: Flock Age Tag (Calculated dynamically) */}
+                  {/* Middle Row: DATE-WISE CLEARLY WRITTEN FLOCK AGE */}
                   {!cell.isPadding && (
-                    <div className="my-0.5">
-                      <span className={`text-[9px] sm:text-[10px] px-1 py-0.2 rounded font-mono block truncate ${
-                        isSelected
-                          ? 'bg-indigo-500/20 text-indigo-300 font-bold'
-                          : isCompleted
-                          ? 'text-emerald-400/90'
-                          : 'text-slate-500'
-                      }`}>
-                        Day {cellFlockAge}
-                      </span>
+                    <div className="my-1 w-full">
+                      {ageInfo.status === 'active' ? (
+                        <div className="space-y-0.5">
+                          {/* Prominent Flock Age Label */}
+                          <span className={`text-[10px] sm:text-[11px] font-extrabold leading-tight block ${
+                            isSelected
+                              ? 'text-indigo-300'
+                              : isCompleted
+                              ? 'text-emerald-400'
+                              : 'text-indigo-200'
+                          }`}>
+                            Flock Age: Day {ageInfo.age}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[9px] font-semibold text-slate-500 italic block">
+                          Pre-Placement
+                        </span>
+                      )}
                     </div>
                   )}
 
-                  {/* Bottom Row: Scheduled Task Indicator Dots */}
+                  {/* Bottom Row: Scheduled Intervention Dots */}
                   <div className="flex items-center gap-1 w-full overflow-hidden h-3">
                     {cellTasks.slice(0, 3).map((task, tIdx) => {
                       let dotColor = 'bg-blue-400';
@@ -667,12 +806,23 @@ export default function PoultryBatchDashboard({
                   <h3 className="text-sm font-bold text-slate-100">
                     Daily Check-in
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono font-bold">
-                    Day {selectedFlockAgeDays}
-                  </span>
+                  {selectedFlockAgeInfo.status === 'active' ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-mono font-bold">
+                      Flock Age: Day {selectedFlockAgeInfo.age}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-mono">
+                      Pre-Placement
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[11px] text-slate-400 mt-1">
                   Target Date: <strong className="text-slate-200">{formattedSelectedDate}</strong>
+                  {selectedFlockAgeInfo.status === 'active' && (
+                    <span className="ml-1 text-slate-400">
+                      ({selectedFlockAgeInfo.diffDays} days after placement on {startDate})
+                    </span>
+                  )}
                 </p>
               </div>
 
@@ -691,7 +841,7 @@ export default function PoultryBatchDashboard({
             {saveSuccessNotice && (
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Daily record saved! Calendar updated with completed tick.</span>
+                <span>Daily log saved successfully! Calendar updated with completed checkmark.</span>
               </div>
             )}
 
@@ -720,7 +870,7 @@ export default function PoultryBatchDashboard({
                     type="number"
                     step="0.1"
                     min="0"
-                    placeholder="e.g. 110"
+                    placeholder="e.g. 115"
                     value={formValues.feedConsumed}
                     onChange={(e) => handleFormChange('feedConsumed', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
@@ -750,7 +900,7 @@ export default function PoultryBatchDashboard({
                     type="number"
                     step="1"
                     min="0"
-                    placeholder="e.g. 58"
+                    placeholder="e.g. 60"
                     value={formValues.avgWeight}
                     onChange={(e) => handleFormChange('avgWeight', e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs font-bold text-slate-100 focus:outline-none transition-colors"
@@ -814,17 +964,17 @@ export default function PoultryBatchDashboard({
               <div className="flex items-center gap-2">
                 <Bell className="w-4 h-4 text-indigo-400" />
                 <h3 className="text-sm font-bold text-slate-100">
-                  Upcoming Reminders
+                  Upcoming Predictive Reminders
                 </h3>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-950 border border-slate-800 text-slate-400 font-mono">
-                {tasks.length} Scheduled
+                {scheduledTasks.length} Scheduled
               </span>
             </div>
 
             {/* Vertical Timeline */}
             <div className="space-y-3">
-              {tasks.map((task) => {
+              {scheduledTasks.map((task) => {
                 const IconComponent = task.icon || Activity;
                 const isSelectedTaskDate = task.date === selectedDateStr;
 
@@ -865,9 +1015,9 @@ export default function PoultryBatchDashboard({
                       </p>
 
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500 font-mono">
-                        <span>{task.date}</span>
+                        <span className="text-slate-300 font-semibold">{task.date}</span>
                         <span>•</span>
-                        <span className="text-indigo-400 font-semibold">Flock Age: Day {task.flockAge}</span>
+                        <span className="text-indigo-400 font-bold">Flock Age: Day {task.flockAge}</span>
                       </div>
                     </div>
                   </div>
